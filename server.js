@@ -3,7 +3,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { recipes, inventory } from "./data/seed.js";
-import { RECIPE_ID_REGEX, INVENTORY_ID_REGEX } from "./models/constants.js";
+import { RECIPE_ID_REGEX, INVENTORY_ID_REGEX, ISO_DATE_REGEX } from "./models/constants.js";
 
 const STUDENT_ID = "33905320";
 const PORT = 3000;
@@ -46,7 +46,83 @@ function toLines(text) {
     .filter(Boolean);
 }
 
-/* ---------------- Home ---------------- */
+/* ---------------- HD Task 4: Validation Middleware ---------------- */
+const MEAL_TYPES = new Set(["Breakfast", "Lunch", "Dinner", "Snack"]);
+const DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
+const INV_UNITS = new Set(["pieces", "kg", "g", "ml", "L", "pack"]);
+const INV_CATEGORIES = new Set(["Vegetables", "Fruits", "Grains", "Dairy", "Meat", "Pantry"]);
+const INV_LOCATIONS = new Set(["Fridge", "Freezer", "Pantry", "Cupboard"]);
+
+function bad(res, msg) {
+  return res.redirect(`/error-${STUDENT_ID}?msg=${encodeURIComponent(msg)}`);
+}
+
+function validateRecipeBody(req, res, next) {
+  const {
+    title, chef, mealType, cuisineType, prepTime,
+    difficulty, servings, ingredients, instructions, createdDate,
+  } = req.body;
+
+  if (!title?.trim()) return bad(res, "title is required");
+  if (!chef?.trim()) return bad(res, "chef is required");
+  if (!mealType || !MEAL_TYPES.has(mealType)) return bad(res, `mealType must be one of: ${[...MEAL_TYPES].join(", ")}`);
+  if (!cuisineType?.trim()) return bad(res, "cuisineType is required");
+
+  const pt = Number(prepTime);
+  if (!Number.isFinite(pt) || pt < 0) return bad(res, "prepTime must be a number ≥ 0");
+
+  if (!difficulty || !DIFFICULTIES.has(difficulty)) return bad(res, `difficulty must be one of: ${[...Difficulties].join(", ")}`);
+
+  const sv = Number(servings);
+  if (!Number.isFinite(sv) || sv <= 0) return bad(res, "servings must be a number > 0");
+
+  if (!ingredients || (Array.isArray(ingredients) ? ingredients.length === 0 : toLines(ingredients).length === 0)) {
+    return bad(res, "ingredients must be non-empty");
+  }
+  if (!instructions || (Array.isArray(instructions) ? instructions.length === 0 : toLines(instructions).length === 0)) {
+    return bad(res, "instructions must be non-empty");
+  }
+
+  const cd = createdDate || new Date().toISOString().split("T")[0];
+  if (!ISO_DATE_REGEX.test(cd)) return bad(res, "createdDate must be YYYY-MM-DD");
+  req.body.createdDate = cd; // normalize
+  next();
+}
+
+function validateInventoryBody(req, res, next) {
+  const {
+    userId, ingredientName, quantity, unit, category,
+    purchaseDate, expirationDate, location, cost, createdDate,
+  } = req.body;
+
+  if (!userId?.trim()) return bad(res, "userId is required");
+  if (!ingredientName?.trim()) return bad(res, "ingredientName is required");
+
+  const qty = Number(quantity);
+  if (!Number.isFinite(qty) || qty < 0) return bad(res, "quantity must be a number ≥ 0");
+
+  if (!unit || !INV_UNITS.has(unit)) return bad(res, `unit must be one of: ${[...INV_UNITS].join(", ")}`);
+  if (!category || !INV_CATEGORIES.has(category)) return bad(res, `category must be one of: ${[...INV_CATEGORIES].join(", ")}`);
+  if (!location || !INV_LOCATIONS.has(location)) return bad(res, `location must be one of: ${[...INV_LOCATIONS].join(", ")}`);
+
+  if (!ISO_DATE_REGEX.test(purchaseDate || "")) return bad(res, "purchaseDate must be YYYY-MM-DD");
+  if (!ISO_DATE_REGEX.test(expirationDate || "")) return bad(res, "expirationDate must be YYYY-MM-DD");
+
+  // Optional: expiration should be on/after purchase
+  if (new Date(expirationDate) < new Date(purchaseDate)) {
+    return bad(res, "expirationDate cannot be before purchaseDate");
+  }
+
+  const c = Number(cost);
+  if (!Number.isFinite(c) || c < 0) return bad(res, "cost must be a number ≥ 0");
+
+  const cd = createdDate || new Date().toISOString().split("T")[0];
+  if (!ISO_DATE_REGEX.test(cd)) return bad(res, "createdDate must be YYYY-MM-DD");
+  req.body.createdDate = cd; // normalize
+  next();
+}
+
+/* ---------------- Home (unique layout) ---------------- */
 app.get(`/home-${STUDENT_ID}`, (req, res) => {
   const cuisineSet = new Set(
     recipes.map((r) => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))
@@ -92,6 +168,7 @@ app.get(`/add-recipe-${STUDENT_ID}`, (req, res) => {
   });
 });
 
+// Filter (HD1)
 app.get(`/filter-recipes-${STUDENT_ID}`, (req, res) => {
   const { mealType, cuisineType, difficulty } = req.query;
   let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
@@ -109,6 +186,7 @@ app.get(`/filter-recipes-${STUDENT_ID}`, (req, res) => {
   });
 });
 
+// Search (HD2 simple)
 app.get(`/search-recipes-${STUDENT_ID}`, (req, res) => {
   const q = String(req.query.q || "").trim().toLowerCase();
   let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
@@ -138,16 +216,12 @@ app.get(`/delete-recipe-${STUDENT_ID}`, (req, res) => {
   });
 });
 
-// API: Add recipe
-app.post(`/api/add-recipe-${STUDENT_ID}`, (req, res) => {
+// API: Add recipe (HD4: validation middleware applied)
+app.post(`/api/add-recipe-${STUDENT_ID}`, validateRecipeBody, (req, res) => {
   const {
     title, chef, mealType, cuisineType, prepTime, difficulty,
     servings, ingredients, instructions, createdDate,
   } = req.body;
-
-  if (!title || !chef || !mealType || !cuisineType || !difficulty) {
-    return res.redirect(`/error-${STUDENT_ID}?msg=Missing+required+fields`);
-  }
 
   const newRecipe = {
     recipeId: nextId("R", recipes, /^R-(\d{5})$/),
@@ -160,7 +234,7 @@ app.post(`/api/add-recipe-${STUDENT_ID}`, (req, res) => {
     prepTime: Number(prepTime) || 0,
     difficulty,
     servings: Number(servings) || 1,
-    createdDate: createdDate || new Date().toISOString().split("T")[0],
+    createdDate,
   };
 
   recipes.push(newRecipe);
@@ -172,7 +246,7 @@ app.post(`/api/delete-recipe-${STUDENT_ID}`, (req, res) => {
   const { recipeId, confirm } = req.body;
 
   if (typeof recipeId !== "string" || !RECIPE_ID_REGEX.test(recipeId)) {
-    return res.redirect(`/error-${STUDENT_ID}?msg=Invalid+recipeId`);
+    return bad(res, "Invalid recipeId");
   }
 
   if (confirm !== "on") {
@@ -183,9 +257,7 @@ app.post(`/api/delete-recipe-${STUDENT_ID}`, (req, res) => {
   }
 
   const idx = recipes.findIndex((r) => r.recipeId === recipeId);
-  if (idx === -1) {
-    return res.redirect(`/error-${STUDENT_ID}?msg=Recipe+not+found`);
-  }
+  if (idx === -1) return bad(res, "Recipe not found");
 
   recipes.splice(idx, 1);
   return res.redirect(`/recipes-${STUDENT_ID}`);
@@ -210,21 +282,18 @@ app.get(`/inventory-${STUDENT_ID}`, (req, res) => {
 app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
   res.render("addInventory", {
     studentId: STUDENT_ID,
-    categories: ["Vegetables", "Fruits", "Grains", "Dairy", "Meat", "Pantry"],
-    locations: ["Fridge", "Freezer", "Pantry", "Cupboard"],
-    units: ["pieces", "kg", "g", "ml", "L", "pack"],
+    categories: [...INV_CATEGORIES],
+    locations: [...INV_LOCATIONS],
+    units: [...INV_UNITS],
   });
 });
 
-app.post(`/api/add-inventory-${STUDENT_ID}`, (req, res) => {
+// API: Add inventory (HD4: validation middleware applied)
+app.post(`/api/add-inventory-${STUDENT_ID}`, validateInventoryBody, (req, res) => {
   const {
     userId, ingredientName, quantity, unit, category,
     purchaseDate, expirationDate, location, cost, createdDate,
   } = req.body;
-
-  if (!userId || !ingredientName || !unit || !category || !purchaseDate || !expirationDate || !location) {
-    return res.redirect(`/error-${STUDENT_ID}?msg=Missing+required+fields`);
-  }
 
   const newItem = {
     inventoryId: nextId("I", inventory, /^I-(\d{5})$/),
@@ -237,7 +306,7 @@ app.post(`/api/add-inventory-${STUDENT_ID}`, (req, res) => {
     expirationDate,
     location,
     cost: Number(cost) || 0,
-    createdDate: createdDate || new Date().toISOString().split("T")[0],
+    createdDate,
   };
 
   inventory.push(newItem);
@@ -247,10 +316,10 @@ app.post(`/api/add-inventory-${STUDENT_ID}`, (req, res) => {
 app.post(`/api/delete-inventory-${STUDENT_ID}`, (req, res) => {
   const { inventoryId } = req.body;
   if (typeof inventoryId !== "string" || !INVENTORY_ID_REGEX.test(inventoryId)) {
-    return res.redirect(`/error-${STUDENT_ID}?msg=Invalid+inventoryId`);
+    return bad(res, "Invalid inventoryId");
   }
   const idx = inventory.findIndex((i) => i.inventoryId === inventoryId);
-  if (idx === -1) return res.redirect(`/error-${STUDENT_ID}?msg=Item+not+found`);
+  if (idx === -1) return bad(res, "Item not found");
   inventory.splice(idx, 1);
   return res.redirect(`/inventory-${STUDENT_ID}`);
 });
