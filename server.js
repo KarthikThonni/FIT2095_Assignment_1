@@ -46,6 +46,20 @@ function toLines(text) {
     .filter(Boolean);
 }
 
+/* ---- NEW: Low-stock helper ---- */
+function isLowStockByUnit(quantity, unit) {
+  const q = Number(quantity) || 0;
+  switch (unit) {
+    case "pieces": return q < 3;
+    case "kg":     return q < 0.5;
+    case "g":      return q < 100;
+    case "L":      return q < 0.5;
+    case "ml":     return q < 100;
+    case "pack":   return q < 1;
+    default:       return q <= 0; // fallback
+  }
+}
+
 /* ---------------- HD Task 4: Validation Middleware ---------------- */
 const MEAL_TYPES = new Set(["Breakfast", "Lunch", "Dinner", "Snack"]);
 const DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
@@ -71,7 +85,7 @@ function validateRecipeBody(req, res, next) {
   const pt = Number(prepTime);
   if (!Number.isFinite(pt) || pt < 0) return bad(res, "prepTime must be a number ≥ 0");
 
-  if (!difficulty || !DIFFICULTIES.has(difficulty)) return bad(res, `difficulty must be one of: ${[...Difficulties].join(", ")}`);
+  if (!difficulty || !DIFFICULTIES.has(difficulty)) return bad(res, `difficulty must be one of: ${[...DIFFICULTIES].join(", ")}`);
 
   const sv = Number(servings);
   if (!Number.isFinite(sv) || sv <= 0) return bad(res, "servings must be a number > 0");
@@ -108,7 +122,6 @@ function validateInventoryBody(req, res, next) {
   if (!ISO_DATE_REGEX.test(purchaseDate || "")) return bad(res, "purchaseDate must be YYYY-MM-DD");
   if (!ISO_DATE_REGEX.test(expirationDate || "")) return bad(res, "expirationDate must be YYYY-MM-DD");
 
-  // Optional: expiration should be on/after purchase
   if (new Date(expirationDate) < new Date(purchaseDate)) {
     return bad(res, "expirationDate cannot be before purchaseDate");
   }
@@ -122,7 +135,7 @@ function validateInventoryBody(req, res, next) {
   next();
 }
 
-/* ---------------- Home (unique layout) ---------------- */
+/* ---------------- Home ---------------- */
 app.get(`/home-${STUDENT_ID}`, (req, res) => {
   const cuisineSet = new Set(
     recipes.map((r) => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))
@@ -168,7 +181,6 @@ app.get(`/add-recipe-${STUDENT_ID}`, (req, res) => {
   });
 });
 
-// Filter (HD1)
 app.get(`/filter-recipes-${STUDENT_ID}`, (req, res) => {
   const { mealType, cuisineType, difficulty } = req.query;
   let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
@@ -186,7 +198,6 @@ app.get(`/filter-recipes-${STUDENT_ID}`, (req, res) => {
   });
 });
 
-// Search (HD2 simple)
 app.get(`/search-recipes-${STUDENT_ID}`, (req, res) => {
   const q = String(req.query.q || "").trim().toLowerCase();
   let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
@@ -216,7 +227,7 @@ app.get(`/delete-recipe-${STUDENT_ID}`, (req, res) => {
   });
 });
 
-// API: Add recipe (HD4: validation middleware applied)
+// API: Add recipe (VALIDATED)
 app.post(`/api/add-recipe-${STUDENT_ID}`, validateRecipeBody, (req, res) => {
   const {
     title, chef, mealType, cuisineType, prepTime, difficulty,
@@ -268,14 +279,24 @@ app.get(`/inventory-${STUDENT_ID}`, (req, res) => {
   const items = inventory.map((i) => {
     const plain = i.toJSON ? i.toJSON() : i;
     const dte = daysUntil(plain.expirationDate);
-    return { ...plain, daysToExpire: dte, isExpiringSoon: dte <= 3, isExpired: dte < 0 };
+    const low = isLowStockByUnit(plain.quantity, plain.unit); // NEW
+    return {
+      ...plain,
+      daysToExpire: dte,
+      isExpiringSoon: dte <= 3,
+      isExpired: dte < 0,
+      isLowStock: low, // NEW
+    };
   });
+
   const totalValue = sumTotalInventoryValue(items);
+  const lowStockCount = items.filter((x) => x.isLowStock).length; // NEW
 
   res.render("inventory", {
     studentId: STUDENT_ID,
     items,
     totalValue: totalValue.toFixed(2),
+    lowStockCount, // NEW
   });
 });
 
@@ -288,7 +309,7 @@ app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
   });
 });
 
-// API: Add inventory (HD4: validation middleware applied)
+// API: Add inventory (VALIDATED)
 app.post(`/api/add-inventory-${STUDENT_ID}`, validateInventoryBody, (req, res) => {
   const {
     userId, ingredientName, quantity, unit, category,

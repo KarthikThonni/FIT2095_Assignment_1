@@ -21,8 +21,15 @@
   </nav>
 
   <div class="container my-4">
-    <h1 class="mb-4">🛒 Inventory Dashboard</h1>
+    <h1 class="mb-3">🛒 Inventory Dashboard</h1>
     <a href="/add-inventory-<%= studentId %>" class="btn btn-success mb-3">➕ Add Item</a>
+
+    <!-- NEW: Low-stock banner -->
+    <% if (typeof lowStockCount !== 'undefined' && lowStockCount > 0) { %>
+      <div class="alert alert-warning">
+        ⚠️ <strong><%= lowStockCount %></strong> item(s) are low on stock.
+      </div>
+    <% } %>
 
     <% if (items.length === 0) { %>
       <div class="alert alert-warning">No inventory items found.</div>
@@ -54,13 +61,16 @@
               <td><%= item.location %></td>
               <td><%= item.purchaseDate %></td>
               <td><%= item.expirationDate %></td>
-              <td>
+              <td class="d-flex flex-wrap gap-1">
                 <% if (item.isExpired) { %>
                   <span class="badge bg-danger">Expired</span>
                 <% } else if (item.isExpiringSoon) { %>
                   <span class="badge bg-warning text-dark">Expiring Soon</span>
                 <% } else { %>
                   <span class="badge bg-success">Fresh</span>
+                <% } %>
+                <% if (item.isLowStock) { %>
+                  <span class="badge bg-secondary">Low Stock</span>
                 <% } %>
               </td>
               <td><%= Number(item.cost || 0).toFixed(2) %></td>
