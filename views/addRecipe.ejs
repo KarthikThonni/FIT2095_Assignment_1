@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Recipe</title>
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
+    </div>
+  </nav>
+
+  <div class="container my-4">
+    <h1 class="mb-4">➕ Add Recipe</h1>
+
+    <form method="POST" action="/api/add-recipe-<%= studentId %>">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <label class="form-label">Title</label>
+          <input name="title" class="form-control" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Chef (Name-ID)</label>
+          <input name="chef" class="form-control" placeholder="e.g., MarioRossi-87654321" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Meal Type</label>
+          <select name="mealType" class="form-select" required>
+            <% mealTypes.forEach(mt => { %>
+              <option value="<%= mt %>"><%= mt %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Cuisine Type</label>
+          <input name="cuisineType" class="form-control" placeholder="e.g., Italian" required />
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Prep Time (mins)</label>
+          <input name="prepTime" type="number" min="0" class="form-control" required />
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Difficulty</label>
+          <select name="difficulty" class="form-select" required>
+            <% difficulties.forEach(d => { %>
+              <option value="<%= d %>"><%= d %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Servings</label>
+          <input name="servings" type="number" min="1" class="form-control" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Ingredients (one per line)</label>
+          <textarea name="ingredients" class="form-control" rows="6" placeholder="e.g. 400g spaghetti&#10;200g pancetta" required></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Instructions (one step per line)</label>
+          <textarea name="instructions" class="form-control" rows="6" placeholder="e.g. Boil salted water&#10;Cook pancetta until crispy" required></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Created Date (YYYY-MM-DD)</label>
+          <input name="createdDate" type="text" class="form-control" placeholder="2025-07-21" required />
+        </div>
+
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-success">Save Recipe</button>
+        <a class="btn btn-secondary" href="/recipes-<%= studentId %>">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+</body>
+</html>

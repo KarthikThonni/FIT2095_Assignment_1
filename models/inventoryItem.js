@@ -1,4 +1,4 @@
-// models/inventoryItem.js
+// models/InventoryItem.js
 import { INVENTORY_ID_REGEX, ISO_DATE_REGEX, assert } from "./constants.js";
 
 export class InventoryItem {

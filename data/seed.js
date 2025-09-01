@@ -1,7 +1,7 @@
 // data/seed.js
 import { MealType, Difficulty } from "../models/enums.js";
 import { Recipe } from "../models/Recipe.js";
-import { InventoryItem } from "../models/inventoryItem.js";
+import { InventoryItem } from "../models/InventoryItem.js";
 
 export const recipes = [
   Recipe.from({
