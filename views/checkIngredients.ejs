@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Check Pantry</title>
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
+    </div>
+  </nav>
+
+  <div class="container my-4">
+    <h1 class="mb-3">🧪 Check Pantry for a Recipe</h1>
+
+    <form class="row g-3 mb-4" method="GET" action="/check-ingredients-<%= studentId %>">
+      <div class="col-md-6">
+        <label class="form-label">Select Recipe</label>
+        <select class="form-select" name="recipeId" onchange="this.form.submit()">
+          <% (allRecipes || []).forEach(r => { %>
+            <option value="<%= r.recipeId %>" <%= selected && r.recipeId===selected.recipeId ? 'selected' : '' %>>
+              <%= r.title %> (<%= r.recipeId %>)
+            </option>
+          <% }) %>
+        </select>
+      </div>
+    </form>
+
+    <% if (selected && result) { %>
+      <div class="alert <%= result.pct===100 ? 'alert-success' : (result.pct>=60 ? 'alert-info' : 'alert-warning') %>">
+        Pantry coverage: <strong><%= result.pct %>%</strong> of ingredients matched.
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-header bg-success text-white">✅ You have</div>
+            <ul class="list-group list-group-flush">
+              <% if (result.have.length === 0) { %>
+                <li class="list-group-item text-muted">None</li>
+              <% } %>
+              <% result.have.forEach(h => { %>
+                <li class="list-group-item">
+                  <div><strong><%= h.line %></strong></div>
+                  <div class="small text-muted">
+                    Matched: <%= h.matchedItem.ingredientName %>
+                    • Qty: <%= h.matchedItem.quantity %> <%= h.matchedItem.unit %>
+                    • Loc: <%= h.matchedItem.location %>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-header bg-danger text-white">❌ Missing</div>
+            <ul class="list-group list-group-flush">
+              <% if (result.missing.length === 0) { %>
+                <li class="list-group-item text-muted">None 🎉</li>
+              <% } %>
+              <% result.missing.forEach(m => { %>
+                <li class="list-group-item"><%= m.line %></li>
+              <% }) %>
+            </ul>
+          </div>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</body>
+</html>
