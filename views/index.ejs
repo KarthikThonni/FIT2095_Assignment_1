@@ -1,59 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Recipe Hub - Home</title>
-  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+  <meta charset="UTF-8" />
+  <title>Recipe Hub</title>
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css" />
+  <style>
+    .topbar {
+      background: linear-gradient(135deg,#1f6feb,#7ab9ff);
+      color:#fff;
+    }
+    .brand-badge {
+      background: rgba(255,255,255,.15);
+      border-radius: 999px;
+      padding: .25rem .75rem;
+      font-weight: 600;
+    }
+    .pill {
+      border-radius: 999px;
+      padding: .35rem .8rem;
+      font-weight: 600;
+    }
+    .pill-blue { background:#e9f2ff; color:#0b5ed7; }
+    .pill-green{ background:#eaf7ef; color:#13795b; }
+    .pill-cyan { background:#e9fbff; color:#0aa2c0; }
+    .pill-amber{ background:#fff5e6; color:#b45309; }
+    .section-title { font-weight:700; }
+    .card-soft { border: 0; box-shadow: 0 6px 18px rgba(0,0,0,.06); }
+    .link-clean { text-decoration: none; }
+  </style>
 </head>
 <body class="bg-light">
 
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
-      <div class="collapse navbar-collapse">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link" href="/recipes-<%= studentId %>">Recipes</a></li>
-          <li class="nav-item"><a class="nav-link" href="/inventory-<%= studentId %>">Inventory</a></li>
-          <li class="nav-item"><a class="nav-link" href="/error-<%= studentId %>">Error Test</a></li>
-        </ul>
+  <!-- Topbar -->
+  <header class="topbar py-3">
+    <div class="container d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-3">
+        <span class="brand-badge">Recipe Hub</span>
+        <span class="opacity-75">Your personal meal planning assistant</span>
       </div>
+      <div class="small">Welcome • Student ID: <strong><%= studentId %></strong></div>
     </div>
-  </nav>
-
-  <!-- Welcome Section -->
-  <header class="text-center my-5">
-    <h1 class="display-5">🍳 Recipe Hub</h1>
-    <p class="lead">Your Personal Meal Planning Assistant</p>
-    <p>Welcome back, <strong>Student ID: <%= studentId %></strong></p>
   </header>
 
-  <!-- Stats Section -->
-  <div class="container">
-    <div class="row text-center">
-      <div class="col-md-6 mb-3">
-        <div class="card shadow-sm">
+  <main class="container py-4">
+    <div class="row g-4">
+      <!-- LEFT: Action Panel -->
+      <aside class="col-12 col-lg-4">
+        <div class="card card-soft">
           <div class="card-body">
-            <h5 class="card-title">📖 Total Recipes</h5>
-            <p class="display-6"><%= stats.recipeCount %></p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 mb-3">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title">🛒 Inventory Items</h5>
-            <p class="display-6"><%= stats.inventoryCount %></p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+            <h5 class="section-title mb-3">Quick Actions</h5>
 
-  <!-- Footer -->
-  <footer class="text-center mt-5 py-3 bg-dark text-light">
-    <p>© 2025 Recipe Hub | Built by Karthik Thonnithodi (ID: <%= studentId %>)</p>
+            <div class="mb-3">
+              <div class="fw-semibold mb-2">Recipes</div>
+              <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary" href="/add-recipe-<%= studentId %>">＋ Add Recipe</a>
+                <a class="btn btn-outline-primary" href="/recipes-<%= studentId %>">📖 View All</a>
+                <a class="btn btn-outline-secondary" href="/filter-recipes-<%= studentId %>">🔎 Filter</a>
+              </div>
+            </div>
+
+            <hr/>
+
+            <div class="mb-3">
+              <div class="fw-semibold mb-2">Inventory</div>
+              <div class="d-grid gap-2">
+                <a class="btn btn-outline-success" href="/add-inventory-<%= studentId %>">＋ Add Item</a>
+                <a class="btn btn-outline-success" href="/inventory-<%= studentId %>">🧺 View Inventory</a>
+              </div>
+            </div>
+
+            <hr/>
+
+            <div>
+              <div class="fw-semibold mb-2">HD Tasks</div>
+              <div class="d-grid gap-2">
+                <a class="btn btn-outline-dark" href="/filter-recipes-<%= studentId %>">🏆 Filter Recipes</a>
+                <a class="btn btn-outline-dark disabled">🔍 Search & Scale (TBD)</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Stats + Previews -->
+      <section class="col-12 col-lg-8">
+        <!-- Stats row -->
+        <div class="card card-soft mb-4">
+          <div class="card-body">
+            <h5 class="section-title mb-3">At a glance</h5>
+            <div class="d-flex flex-wrap gap-2">
+              <span class="pill pill-blue">📚 Recipes: <%= stats.recipeCount %></span>
+              <span class="pill pill-green">🧺 Inventory: <%= stats.inventoryCount %></span>
+              <span class="pill pill-cyan">🌍 Cuisine Types: <%= stats.cuisineTypes %></span>
+              <span class="pill pill-amber">💰 Value: $<%= stats.totalInventoryValue %></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latest Recipes -->
+        <div class="card card-soft mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="section-title m-0">Latest Recipes</h5>
+              <a class="link-clean small" href="/recipes-<%= studentId %>">View all →</a>
+            </div>
+
+            <% if (!recentRecipes || recentRecipes.length === 0) { %>
+              <div class="text-muted">No recipes yet.</div>
+            <% } else { %>
+              <div class="row g-3">
+                <% recentRecipes.forEach(r => { %>
+                  <div class="col-12 col-md-6">
+                    <div class="border rounded p-3 h-100">
+                      <div class="fw-semibold"><%= r.title %></div>
+                      <div class="small text-muted mb-2">
+                        <%= r.cuisineType %> • <%= r.mealType %> • <%= r.difficulty %>
+                      </div>
+                      <div class="small">⏱ <%= r.prepTime %> min • 🍽 <%= r.servings %> servings</div>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Expiring Soon -->
+        <div class="card card-soft">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="section-title m-0">Expiring Soon</h5>
+              <a class="link-clean small" href="/inventory-<%= studentId %>">Open inventory →</a>
+            </div>
+
+            <% if (!expiringItems || expiringItems.length === 0) { %>
+              <div class="text-muted">Nothing expiring in the next few days 🎉</div>
+            <% } else { %>
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Expires</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% expiringItems.forEach(it => { %>
+                      <tr>
+                        <td><%= it.ingredientName %> <span class="text-muted small">• <%= it.location %></span></td>
+                        <td><%= it.expirationDate %></td>
+                        <td>
+                          <% if (it.daysToExpire < 0) { %>
+                            <span class="badge bg-danger">Expired</span>
+                          <% } else if (it.daysToExpire <= 3) { %>
+                            <span class="badge bg-warning text-dark">In <%= it.daysToExpire %> day(s)</span>
+                          <% } else { %>
+                            <span class="badge bg-success">Fresh</span>
+                          <% } %>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="text-center py-4">
+    <div class="small text-muted">© 2025 Recipe Hub • Built by Karthik Thonnithodi (ID: <%= studentId %>)</div>
   </footer>
 
+  <script src="/bootstrap/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
