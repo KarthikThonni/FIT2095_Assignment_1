@@ -1,8 +1,10 @@
 // data/seed.js
+import { MealType, Difficulty } from "../models/enums.js";
+import { Recipe } from "../models/Recipe.js";
+import { InventoryItem } from "../models/inventoryItem.js";
 
-// --- Recipe Sample Data ---
 export const recipes = [
-  {
+  Recipe.from({
     recipeId: "R-00001",
     title: "Classic Spaghetti Carbonara",
     chef: "MarioRossi-87654321",
@@ -20,14 +22,14 @@ export const recipes = [
       "Combine hot pasta with pancetta",
       "Add egg mixture off heat",
     ],
-    mealType: "Dinner",
+    mealType: MealType.DINNER,
     cuisineType: "Italian",
     prepTime: 25,
-    difficulty: "Medium",
+    difficulty: Difficulty.MEDIUM,
     servings: 4,
     createdDate: "2025-07-20",
-  },
-  {
+  }),
+  Recipe.from({
     recipeId: "R-00002",
     title: "Avocado Toast Supreme",
     chef: "SarahJones-12345678",
@@ -46,18 +48,17 @@ export const recipes = [
       "Spread avocado on toast",
       "Top with tomato and feta",
     ],
-    mealType: "Breakfast",
+    mealType: MealType.BREAKFAST,
     cuisineType: "Mediterranean",
     prepTime: 10,
-    difficulty: "Easy",
+    difficulty: Difficulty.EASY,
     servings: 2,
     createdDate: "2025-07-21",
-  },
+  }),
 ];
 
-// --- Inventory Sample Data ---
 export const inventory = [
-  {
+  InventoryItem.from({
     inventoryId: "I-00001",
     userId: "SarahJones-12345678",
     ingredientName: "Fresh Tomatoes",
@@ -69,8 +70,8 @@ export const inventory = [
     location: "Fridge",
     cost: 6.4,
     createdDate: "2025-07-18",
-  },
-  {
+  }),
+  InventoryItem.from({
     inventoryId: "I-00002",
     userId: "MarioRossi-87654321",
     ingredientName: "Spaghetti Pasta",
@@ -82,5 +83,5 @@ export const inventory = [
     location: "Pantry",
     cost: 8.9,
     createdDate: "2025-07-22",
-  },
+  }),
 ];
