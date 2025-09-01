@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Recipe Hub</title>
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/public/css/app.css">
+</head>
+<body class="p-4">
+  <h1 class="mb-3">Recipe Hub</h1>
+  <p>Welcome, Student ID: <strong><%= studentId %></strong></p>
+
+  <div class="row g-3">
+    <div class="col-auto"><span class="badge text-bg-primary">Recipes: <%= stats.recipeCount %></span></div>
+    <div class="col-auto"><span class="badge text-bg-success">Inventory: <%= stats.inventoryCount %></span></div>
+  </div>
+
+  <div class="mt-3">
+    <a class="btn btn-outline-primary btn-sm" href="/api/recipes-<%= studentId %>">View Recipes (JSON)</a>
+    <a class="btn btn-outline-success btn-sm" href="/api/inventory-<%= studentId %>">View Inventory (JSON)</a>
+  </div>
+
+  <script src="/bootstrap/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

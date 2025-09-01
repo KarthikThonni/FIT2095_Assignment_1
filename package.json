@@ -1,26 +1,18 @@
 {
-  "name": "fit2095_assignment_1",
+  "name": "assignment_1",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Recipe Hub - Personal Meal Planning Assistant",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/KarthikThonni/FIT2095_Assignment_1.git"
+    "start": "node server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Karthik Thonnithodi",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/KarthikThonni/FIT2095_Assignment_1/issues"
-  },
-  "homepage": "https://github.com/KarthikThonni/FIT2095_Assignment_1#readme",
   "dependencies": {
-    "@popperjs/core": "^2.11.8",
-    "bootstrap": "^5.3.8",
+    "bootstrap": "^5.3.3",
     "ejs": "^3.1.10",
-    "express": "^5.1.0"
+    "express": "^4.19.2"
   }
 }
