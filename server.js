@@ -3,8 +3,9 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { recipes, inventory } from "./data/seed.js";
-import { RECIPE_ID_REGEX } from "./models/constants.js";
+import { RECIPE_ID_REGEX, INVENTORY_ID_REGEX } from "./models/constants.js";
 import { Recipe } from "./models/Recipe.js";
+import { InventoryItem } from "./models/InventoryItem.js";
 
 const STUDENT_ID = "33905320";
 const PORT = 3000;
@@ -40,11 +41,36 @@ function nextRecipeId() {
   return `R-${next}`;
 }
 
+function nextInventoryId() {
+  let maxNum = 0;
+  for (const it of inventory) {
+    const m = String(it.inventoryId).match(/^I-(\d{5})$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  }
+  const next = String(maxNum + 1).padStart(5, "0");
+  return `I-${next}`;
+}
+
 function toLines(text) {
   return String(text || "")
     .split(/\r?\n/)
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function daysUntil(dateStr) {
+  const today = new Date();
+  const d = new Date(dateStr);
+  const diffMs = d.setHours(0,0,0,0) - today.setHours(0,0,0,0);
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function sumTotalInventoryValue(items) {
+  // Assumption: item.cost is the total cost for that item entry (not unit price).
+  return items.reduce((acc, it) => acc + (Number(it.cost) || 0), 0);
 }
 
 // ---------------------- Routes ----------------------
@@ -53,18 +79,17 @@ function toLines(text) {
 app.get(`/home-${STUDENT_ID}`, (req, res) => {
   res.render("index", {
     studentId: STUDENT_ID,
-    stats: {
-      recipeCount: recipes.length,
-      inventoryCount: inventory.length,
-    },
+    stats: { recipeCount: recipes.length, inventoryCount: inventory.length },
   });
 });
+
+// ===== Recipes =====
 
 // Task 6: View all recipes (EJS table)
 app.get(`/recipes-${STUDENT_ID}`, (req, res) => {
   res.render("recipes", {
     studentId: STUDENT_ID,
-    recipes: recipes.map(r => r.toJSON()),
+    recipes: recipes.map((r) => r.toJSON()),
   });
 });
 
@@ -90,7 +115,7 @@ app.post(`/api/add-recipe-${STUDENT_ID}`, (req, res) => {
       servings,
       ingredients,
       instructions,
-      createdDate
+      createdDate,
     } = req.body;
 
     const newRecipe = Recipe.from({
@@ -104,7 +129,7 @@ app.post(`/api/add-recipe-${STUDENT_ID}`, (req, res) => {
       prepTime: Number(prepTime),
       difficulty,
       servings: Number(servings),
-      createdDate
+      createdDate,
     });
 
     recipes.push(newRecipe);
@@ -122,24 +147,108 @@ app.post(`/api/delete-recipe-${STUDENT_ID}`, (req, res) => {
   if (typeof recipeId !== "string" || !RECIPE_ID_REGEX.test(recipeId)) {
     return res.redirect(`/error-${STUDENT_ID}?msg=Invalid+recipeId+format`);
   }
-
-  const index = recipes.findIndex(r => r.recipeId === recipeId);
+  const index = recipes.findIndex((r) => r.recipeId === recipeId);
   if (index === -1) {
     return res.redirect(`/error-${STUDENT_ID}?msg=Recipe+ID+not+found`);
   }
-
   recipes.splice(index, 1);
   return res.redirect(`/recipes-${STUDENT_ID}`);
 });
 
-// API: Get all recipes (JSON)
-app.get(`/api/recipes-${STUDENT_ID}`, (req, res) => {
-  res.status(200).json(recipes.map(r => r.toJSON()));
+// ===== Inventory =====
+
+// Task 9: Inventory dashboard (EJS)
+app.get(`/inventory-${STUDENT_ID}`, (req, res) => {
+  const items = inventory.map((i) => {
+    const plain = i.toJSON();
+    const dte = daysUntil(plain.expirationDate);
+    return {
+      ...plain,
+      daysToExpire: dte,
+      isExpiringSoon: dte <= 3,       // visual indicator (<= 3 days)
+      isExpired: dte < 0,
+    };
+  });
+
+  // Compute totals (simple sum of cost)
+  const totalValue = sumTotalInventoryValue(items);
+
+  res.render("inventory", {
+    studentId: STUDENT_ID,
+    items,
+    totalValue: Number(totalValue.toFixed(2)),
+  });
 });
 
-// API: Get all inventory (JSON)
+// Task 8: Show Add Inventory form
+app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
+  res.render("addInventory", {
+    studentId: STUDENT_ID,
+    categories: ["Vegetables", "Fruits", "Grains", "Dairy", "Meat", "Pantry"],
+    locations: ["Fridge", "Freezer", "Pantry", "Cupboard"],
+    units: ["pieces", "kg", "g", "ml", "L", "pack"],
+  });
+});
+
+// Task 8: Handle Add Inventory (POST)
+app.post(`/api/add-inventory-${STUDENT_ID}`, (req, res) => {
+  try {
+    const {
+      userId,
+      ingredientName,
+      quantity,
+      unit,
+      category,
+      purchaseDate,
+      expirationDate,
+      location,
+      cost,
+      createdDate,
+    } = req.body;
+
+    const newItem = InventoryItem.from({
+      inventoryId: nextInventoryId(),
+      userId,
+      ingredientName,
+      quantity: Number(quantity),
+      unit,
+      category,
+      purchaseDate,
+      expirationDate,
+      location,
+      cost: Number(cost),
+      createdDate,
+    });
+
+    inventory.push(newItem);
+    return res.redirect(`/inventory-${STUDENT_ID}`);
+  } catch (err) {
+    const msg = encodeURIComponent(err.message || "Invalid inventory data.");
+    return res.redirect(`/error-${STUDENT_ID}?msg=${msg}`);
+  }
+});
+
+// Task 10: Delete Inventory item by ID
+app.post(`/api/delete-inventory-${STUDENT_ID}`, (req, res) => {
+  const { inventoryId } = req.body;
+
+  if (typeof inventoryId !== "string" || !INVENTORY_ID_REGEX.test(inventoryId)) {
+    return res.redirect(`/error-${STUDENT_ID}?msg=Invalid+inventoryId+format`);
+  }
+  const index = inventory.findIndex((i) => i.inventoryId === inventoryId);
+  if (index === -1) {
+    return res.redirect(`/error-${STUDENT_ID}?msg=Inventory+ID+not+found`);
+  }
+  inventory.splice(index, 1);
+  return res.redirect(`/inventory-${STUDENT_ID}`);
+});
+
+// ===== JSON APIs (handy for testing) =====
+app.get(`/api/recipes-${STUDENT_ID}`, (req, res) => {
+  res.status(200).json(recipes.map((r) => r.toJSON()));
+});
 app.get(`/api/inventory-${STUDENT_ID}`, (req, res) => {
-  res.status(200).json(inventory.map(i => i.toJSON()));
+  res.status(200).json(inventory.map((i) => i.toJSON()));
 });
 
 // Error page (Task 3)

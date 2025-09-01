@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add Inventory Item</title>
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
+    </div>
+  </nav>
+
+  <div class="container my-4">
+    <h1 class="mb-4">➕ Add Inventory Item</h1>
+
+    <form method="POST" action="/api/add-inventory-<%= studentId %>">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <label class="form-label">User ID</label>
+          <input name="userId" class="form-control" placeholder="e.g. SarahJones-12345678" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Ingredient Name</label>
+          <input name="ingredientName" class="form-control" required />
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Quantity</label>
+          <input name="quantity" type="number" step="0.01" min="0" class="form-control" required />
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Unit</label>
+          <select name="unit" class="form-select" required>
+            <% units.forEach(u => { %>
+              <option value="<%= u %>"><%= u %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-select" required>
+            <% categories.forEach(c => { %>
+              <option value="<%= c %>"><%= c %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Purchase Date (YYYY-MM-DD)</label>
+          <input name="purchaseDate" class="form-control" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Expiration Date (YYYY-MM-DD)</label>
+          <input name="expirationDate" class="form-control" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Location</label>
+          <select name="location" class="form-select" required>
+            <% locations.forEach(l => { %>
+              <option value="<%= l %>"><%= l %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Cost ($)</label>
+          <input name="cost" type="number" step="0.01" min="0" class="form-control" required />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Created Date (YYYY-MM-DD)</label>
+          <input name="createdDate" class="form-control" required />
+        </div>
+
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-success">Save Item</button>
+        <a class="btn btn-secondary" href="/inventory-<%= studentId %>">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+</body>
+</html>

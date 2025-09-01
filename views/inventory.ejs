@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Recipe Hub - Inventory</title>
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="/recipes-<%= studentId %>">Recipes</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/inventory-<%= studentId %>">Inventory</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container my-4">
+    <h1 class="mb-4">🛒 Inventory Dashboard</h1>
+    <a href="/add-inventory-<%= studentId %>" class="btn btn-success mb-3">➕ Add Item</a>
+
+    <% if (items.length === 0) { %>
+      <div class="alert alert-warning">No inventory items found.</div>
+    <% } else { %>
+      <table class="table table-striped table-bordered align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>ID</th>
+            <th>Ingredient</th>
+            <th>Quantity</th>
+            <th>Unit</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Purchase</th>
+            <th>Expiration</th>
+            <th>Status</th>
+            <th>Cost ($)</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach(item => { %>
+            <tr>
+              <td><%= item.inventoryId %></td>
+              <td><%= item.ingredientName %></td>
+              <td><%= item.quantity %></td>
+              <td><%= item.unit %></td>
+              <td><%= item.category %></td>
+              <td><%= item.location %></td>
+              <td><%= item.purchaseDate %></td>
+              <td><%= item.expirationDate %></td>
+              <td>
+                <% if (item.isExpired) { %>
+                  <span class="badge bg-danger">Expired</span>
+                <% } else if (item.isExpiringSoon) { %>
+                  <span class="badge bg-warning text-dark">Expiring Soon</span>
+                <% } else { %>
+                  <span class="badge bg-success">Fresh</span>
+                <% } %>
+              </td>
+              <td><%= Number(item.cost || 0).toFixed(2) %></td>
+              <td>
+                <form method="POST" action="/api/delete-inventory-<%= studentId %>">
+                  <input type="hidden" name="inventoryId" value="<%= item.inventoryId %>">
+                  <button type="submit" class="btn btn-sm btn-danger">🗑 Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+
+      <div class="alert alert-info text-end">
+        <strong>Total Inventory Value:</strong> $<%= totalValue %>
+      </div>
+    <% } %>
+  </div>
+
+</body>
+</html>
