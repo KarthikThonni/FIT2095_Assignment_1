@@ -1,16 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Search Recipes</title>
-  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
-    </div>
-  </nav>
+<%- include("partials/header", { title: "Search Recipes", studentId }) %>
 
   <div class="container my-4">
     <h1 class="mb-3">🔍 Search Recipes</h1>
@@ -47,5 +36,5 @@
       </table>
     <% } %>
   </div>
-</body>
-</html>
+<%- include("partials/footer") %>
+

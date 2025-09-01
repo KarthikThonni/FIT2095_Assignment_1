@@ -1,19 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Recipe Hub - Recipes</title>
-  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
-      <div class="collapse navbar-collapse"></div>
-    </div>
-  </nav>
+<%- include("partials/header", { title: "All Recipes", studentId }) %>
 
   <div class="container my-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -63,7 +49,7 @@
                   ⚖️ Scale
                 </a>
 
-                <!-- Safer delete: go to confirmation page instead of deleting directly -->
+                
                 <a
                   class="btn btn-sm btn-outline-danger"
                   href="/delete-recipe-<%= studentId %>?recipeId=<%= encodeURIComponent(r.recipeId) %>"
@@ -79,5 +65,5 @@
     <% } %>
   </div>
 
-</body>
-</html>
+<%- include("partials/footer") %>
+

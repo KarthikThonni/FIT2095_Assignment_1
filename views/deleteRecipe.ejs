@@ -1,55 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Delete Recipe</title>
-  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
+<%- include("partials/header", { title: "Delete Recipe", studentId }) %>
 
-  <div class="container my-5">
-    <h1 class="text-danger mb-4">🗑 Delete Recipe</h1>
+<h1 class="text-danger mb-4">🗑 Delete Recipe</h1>
 
-    <% if (query && query.msg) { %>
-      <div class="alert alert-warning"><%= query.msg %></div>
-    <% } %>
+<% if (msg) { %>
+  <div class="alert alert-warning"><%= msg %></div>
+<% } %>
 
-    <form method="POST" action="/api/delete-recipe-<%= studentId %>">
-      <div class="mb-3">
-        <label class="form-label">Select Recipe to Delete</label>
-        <select name="recipeId" class="form-select" onchange="this.form.submit()">
-          <% allRecipes.forEach(r => { %>
-            <option value="<%= r.recipeId %>" <%= r.recipeId === selectedId ? 'selected' : '' %>>
-              <%= r.recipeId %> - <%= r.title %>
-            </option>
-          <% }) %>
-        </select>
-      </div>
-
-      <% if (selected) { %>
-        <div class="card mb-3">
-          <div class="card-body">
-            <h5 class="card-title"><%= selected.title %></h5>
-            <p><strong>ID:</strong> <%= selected.recipeId %></p>
-            <p><strong>Cuisine:</strong> <%= selected.cuisineType %></p>
-            <p><strong>Meal Type:</strong> <%= selected.mealType %></p>
-            <p><strong>Difficulty:</strong> <%= selected.difficulty %></p>
-            <p><strong>Prep Time:</strong> <%= selected.prepTime %> mins</p>
-            <p><strong>Servings:</strong> <%= selected.servings %></p>
-          </div>
-        </div>
-      <% } %>
-
-      <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="confirm" name="confirm">
-        <label class="form-check-label" for="confirm">
-          I understand this action cannot be undone and I want to permanently delete this recipe.
-        </label>
-      </div>
-
-      <button type="submit" class="btn btn-danger">Delete Recipe</button>
-      <a href="/recipes-<%= studentId %>" class="btn btn-secondary">Cancel</a>
-    </form>
+<!-- Select recipe -->
+<form class="mb-4" method="GET" action="/delete-recipe-<%= studentId %>">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-6">
+      <label class="form-label">Select Recipe</label>
+      <select name="recipeId" class="form-select" onchange="this.form.submit()">
+        <% recipes.forEach(r => { %>
+          <option value="<%= r.recipeId %>" <%= (selected && selected.recipeId === r.recipeId) ? "selected" : "" %>>
+            <%= r.recipeId %> — <%= r.title %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <a class="btn btn-secondary w-100" href="/recipes-<%= studentId %>">⬅ Back to Recipes</a>
+    </div>
   </div>
-</body>
-</html>
+</form>
+
+<!-- Preview -->
+<% if (selected) { %>
+  <div class="card border-danger mb-3">
+    <div class="card-header bg-danger text-white">
+      <strong><%= selected.title %></strong>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <p><strong>Recipe ID:</strong> <%= selected.recipeId %></p>
+          <p><strong>Chef:</strong> <%= selected.chef %></p>
+          <p><strong>Meal:</strong> <%= selected.mealType %></p>
+          <p><strong>Cuisine:</strong> <%= selected.cuisineType %></p>
+        </div>
+        <div class="col-md-6">
+          <p><strong>Difficulty:</strong> <%= selected.difficulty %></p>
+          <p><strong>Prep Time:</strong> <%= selected.prepTime %> min</p>
+          <p><strong>Servings:</strong> <%= selected.servings %></p>
+        </div>
+      </div>
+      <hr>
+      <p class="text-danger mb-2"><strong>⚠ This recipe will be permanently deleted.</strong></p>
+
+      <form method="POST" action="/api/delete-recipe-<%= studentId %>">
+        <input type="hidden" name="recipeId" value="<%= selected.recipeId %>">
+        <div class="form-check my-2">
+          <input class="form-check-input" type="checkbox" name="confirm" id="confirmDelete">
+          <label class="form-check-label" for="confirmDelete">
+            I understand this action cannot be undone.
+          </label>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-danger">🗑 Delete Recipe</button>
+          <a href="/recipes-<%= studentId %>" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+<% } %>
+
+<%- include("partials/footer") %>

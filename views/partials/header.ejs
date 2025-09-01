@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Recipe Hub — <%= title || "Meal Planning Assistant" %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css" />
+</head>
+<body class="bg-light">
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand fw-semibold" href="/home-<%= studentId %>">🍲 Recipe Hub</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div id="nav" class="collapse navbar-collapse">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="/home-<%= studentId %>">Home</a></li>
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Recipes</a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/recipes-<%= studentId %>">All Recipes</a></li>
+              <li><a class="dropdown-item" href="/add-recipe-<%= studentId %>">Add Recipe</a></li>
+              <li><a class="dropdown-item" href="/filter-recipes-<%= studentId %>">Filter</a></li>
+              <li><a class="dropdown-item" href="/search-recipes-<%= studentId %>">Search</a></li>
+              <li><a class="dropdown-item" href="/scale-recipe-<%= studentId %>">Scale</a></li>
+              <li><a class="dropdown-item" href="/delete-recipe-<%= studentId %>">Delete</a></li>
+            </ul>
+          </li>
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Inventory</a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/inventory-<%= studentId %>">View Inventory</a></li>
+              <li><a class="dropdown-item" href="/add-inventory-<%= studentId %>">Add Item</a></li>
+              <li><a class="dropdown-item" href="/check-ingredients-<%= studentId %>">Check Pantry</a></li>
+              <li><a class="dropdown-item" href="/suggest-recipes-<%= studentId %>">Suggested Recipes</a></li>
+            </ul>
+          </li>
+        </ul>
+
+        <span class="navbar-text text-white-50">
+          Welcome, <strong>Karthik</strong> (ID: <%= studentId %>)
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container my-4">

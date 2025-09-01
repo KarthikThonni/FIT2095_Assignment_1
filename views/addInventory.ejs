@@ -1,11 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Add Inventory Item</title>
-  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
+<%- include("partials/header", { title: "Add Inventory Item", studentId }) %>
 
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container">
@@ -90,5 +84,5 @@
     </form>
   </div>
 
-</body>
-</html>
+<%- include("partials/footer") %>
+

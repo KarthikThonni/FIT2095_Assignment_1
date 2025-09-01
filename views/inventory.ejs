@@ -1,24 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Recipe Hub - Inventory</title>
-  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-      <a class="navbar-brand" href="/home-<%= studentId %>">Recipe Hub</a>
-      <div class="collapse navbar-collapse">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link" href="/recipes-<%= studentId %>">Recipes</a></li>
-          <li class="nav-item"><a class="nav-link active" href="/inventory-<%= studentId %>">Inventory</a></li>
-        </ul>
-      </div>
-    </div>
-  </nav>
+<%- include("partials/header", { title: "Inventory", studentId }) %>
 
   <div class="container my-4">
     <h1 class="mb-3">🛒 Inventory Dashboard</h1>
@@ -91,5 +72,5 @@
     <% } %>
   </div>
 
-</body>
-</html>
+<%- include("partials/footer") %>
+
