@@ -1,49 +1,57 @@
 // models/User.js
 import mongoose from "mongoose";
 
-// Schema for User
+const ROLES = ["admin", "chef", "manager"];
+
 const userSchema = new mongoose.Schema(
   {
     userId: {
       type: String,
       required: true,
       unique: true,
-      match: /^U-\d{5}$/, // format U-00001
+      match: /^U-\d{5}$/,
     },
     email: {
       type: String,
       required: true,
       unique: true,
-      match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, // email format
+      trim: true,
+      lowercase: true,
+      match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
     },
     password: {
       type: String,
       required: true,
-      minlength: 8,
-      // at least 1 uppercase, 1 lowercase, 1 number, 1 special char
+      // 8+ chars, upper, lower, number, special
       match: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/,
     },
     fullname: {
       type: String,
       required: true,
-      minlength: 2,
-      maxlength: 100,
-      match: /^[a-zA-Z\s'-]+$/, // letters, spaces, hyphens, apostrophes
+      trim: true,
+      match: /^[A-Za-z\s'-]{2,100}$/,
     },
     role: {
       type: String,
       required: true,
-      enum: ["admin", "chef", "manager"],
+      enum: ROLES,
     },
     phone: {
       type: String,
       required: true,
-      match: /^\+?[0-9\s-]{6,20}$/, // international format
+      match: /^\+?[0-9\s-]{6,20}$/,
     },
   },
   { timestamps: true }
 );
 
-const User = mongoose.model("User", userSchema);
+userSchema.pre("validate", async function (next) {
+  if (this.isNew && !this.userId) {
+    const count = await mongoose.model("User").countDocuments();
+    this.userId = "U-" + String(count + 1).padStart(5, "0");
+  }
+  next();
+});
 
+const User = mongoose.model("User", userSchema);
 export default User;
