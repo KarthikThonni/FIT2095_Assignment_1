@@ -1,18 +1,19 @@
 {
   "name": "assignment_2",
   "version": "1.0.0",
-  "description": "CloudKitchen Pro - Recipe & Inventory Management",
+  "description": "CloudKitchen Pro - Enterprise Kitchen Management & Recipe Intelligence Platform",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js"
   },
+  "keywords": [],
   "author": "Karthik Thonnithodi",
   "license": "ISC",
   "dependencies": {
-    "bootstrap": "^5.3.8",
+    "bootstrap": "^5.3.3",
     "ejs": "^3.1.10",
-    "express": "^4.21.2",
-    "mongoose": "^8.18.1"
+    "express": "^4.19.2",
+    "mongoose": "^8.18.2"
   }
 }

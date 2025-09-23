@@ -4,155 +4,764 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 
-import User from "./models/User.js";
-import Recipe from "./models/Recipe.js";
-import InventoryItem from "./models/InventoryItem.js";
+// A1 in-memory data & helpers
+import { recipes, inventory } from "./data/seed.js";
+import {
+  RECIPE_ID_REGEX,
+  INVENTORY_ID_REGEX,
+  ISO_DATE_REGEX,
+} from "./models/constants.js";
+
+// A2 User model (Mongo)
+import { User } from "./models/User.js";
 
 /* ---------- Config ---------- */
 const STUDENT_ID = "33905320";
 const PORT = process.env.PORT || 8080;
-const MONGO_URI = "mongodb://127.0.0.1:27017/cloudkitchen_pro";
+const DB_NAME = `cloudKitchenPro_${STUDENT_ID}`;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-/* ---------- Database ---------- */
+/* ---------- MongoDB (Users only for now) ---------- */
 mongoose
-  .connect(MONGO_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .connect(`mongodb://127.0.0.1:27017/${DB_NAME}`, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log(`✅ MongoDB connected: ${DB_NAME}`))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-/* ---------- Middleware ---------- */
+/* ---------- Views / Static / Body parsers ---------- */
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use("/public", express.static(path.join(__dirname, "public")));
-app.use("/bootstrap", express.static(path.join(__dirname, "node_modules/bootstrap/dist")));
+app.use(
+  "/bootstrap",
+  express.static(path.join(__dirname, "node_modules/bootstrap/dist"))
+);
 
-/* ---------- Auth Helpers ---------- */
-const sessions = Object.create(null);
+/* ---------- Simple cookie auth (no extra packages) ---------- */
+const AUTH_COOKIE = "auth";
 
 function parseCookies(req) {
   const header = req.headers.cookie || "";
   return header.split(";").reduce((acc, part) => {
-    const [k, v] = part.trim().split("=");
-    if (k) acc[k] = decodeURIComponent(v || "");
+    const [k, ...v] = part.trim().split("=");
+    if (!k) return acc;
+    acc[k] = decodeURIComponent(v.join("="));
     return acc;
   }, {});
 }
-function authMiddleware(req, res, next) {
-  const token = parseCookies(req).sid;
-  req.user = token && sessions[token] ? sessions[token] : null;
+function getAuthFromCookie(req) {
+  try {
+    const cookies = parseCookies(req);
+    if (!cookies[AUTH_COOKIE]) return null;
+    return JSON.parse(cookies[AUTH_COOKIE]); // { userId, email, fullname, role }
+  } catch {
+    return null;
+  }
+}
+function setAuthCookie(res, userObj) {
+  const value = encodeURIComponent(JSON.stringify(userObj));
+  res.setHeader("Set-Cookie", `${AUTH_COOKIE}=${value}; Path=/; HttpOnly`);
+}
+function clearAuthCookie(res) {
+  res.setHeader("Set-Cookie", `${AUTH_COOKIE}=; Path=/; Max-Age=0; HttpOnly`);
+}
+
+/* ---------- Make user available in all views ---------- */
+app.use((req, res, next) => {
+  res.locals.user = getAuthFromCookie(req);
+  res.locals.studentId = STUDENT_ID;
+  next();
+});
+
+/* ---------- Helpers (from A1) ---------- */
+function toLines(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+function daysUntil(dateStr) {
+  const today = new Date();
+  const exp = new Date(dateStr);
+  return Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+}
+function sumTotalInventoryValue(items) {
+  return items.reduce((acc, it) => acc + (Number(it.cost) || 0), 0);
+}
+function nextId(prefix, arr, regex) {
+  let max = 0;
+  for (const x of arr) {
+    const id =
+      prefix === "R"
+        ? x.toJSON
+          ? x.toJSON().recipeId
+          : x.recipeId
+        : x.toJSON
+        ? x.toJSON().inventoryId
+        : x.inventoryId;
+    const m = String(id).match(regex);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `${prefix}-${String(max + 1).padStart(5, "0")}`;
+}
+function isLowStockByUnit(quantity, unit) {
+  const q = Number(quantity) || 0;
+  switch (unit) {
+    case "pieces":
+      return q < 3;
+    case "kg":
+      return q < 0.5;
+    case "g":
+      return q < 100;
+    case "L":
+      return q < 0.5;
+    case "ml":
+      return q < 100;
+    case "pack":
+      return q < 1;
+    default:
+      return q <= 0;
+  }
+}
+
+/* ---------- Validation constants (A1 + reused) ---------- */
+const MEAL_TYPES = new Set(["Breakfast", "Lunch", "Dinner", "Snack"]);
+const DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
+const INV_UNITS = new Set(["pieces", "kg", "g", "ml", "L", "pack"]);
+const INV_CATEGORIES = new Set([
+  "Vegetables",
+  "Fruits",
+  "Grains",
+  "Dairy",
+  "Meat",
+  "Pantry",
+]);
+const INV_LOCATIONS = new Set(["Fridge", "Freezer", "Pantry", "Cupboard"]);
+
+function bad(res, msg) {
+  return res.redirect(`/error-${STUDENT_ID}?msg=${encodeURIComponent(msg)}`);
+}
+
+function validateRecipeBody(req, res, next) {
+  const {
+    title,
+    chef,
+    mealType,
+    cuisineType,
+    prepTime,
+    difficulty,
+    servings,
+    ingredients,
+    instructions,
+    createdDate,
+  } = req.body;
+
+  if (!title?.trim()) return bad(res, "title is required");
+  if (!chef?.trim()) return bad(res, "chef is required");
+  if (!mealType || !MEAL_TYPES.has(mealType)) return bad(res, "invalid mealType");
+  if (!cuisineType?.trim()) return bad(res, "cuisineType is required");
+
+  const pt = Number(prepTime);
+  if (!Number.isFinite(pt) || pt < 0) return bad(res, "prepTime must be ≥ 0");
+
+  if (!difficulty || !DIFFICULTIES.has(difficulty))
+    return bad(res, "invalid difficulty");
+
+  const sv = Number(servings);
+  if (!Number.isFinite(sv) || sv <= 0) return bad(res, "servings must be > 0");
+
+  const ingOk = Array.isArray(ingredients)
+    ? ingredients.length > 0
+    : toLines(ingredients).length > 0;
+  if (!ingOk) return bad(res, "ingredients required");
+
+  const instOk = Array.isArray(instructions)
+    ? instructions.length > 0
+    : toLines(instructions).length > 0;
+  if (!instOk) return bad(res, "instructions required");
+
+  const cd = createdDate || new Date().toISOString().split("T")[0];
+  if (!ISO_DATE_REGEX.test(cd))
+    return bad(res, "createdDate must be YYYY-MM-DD");
+  req.body.createdDate = cd;
+
   next();
 }
-function createToken() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+function validateInventoryBody(req, res, next) {
+  const {
+    userId,
+    ingredientName,
+    quantity,
+    unit,
+    category,
+    purchaseDate,
+    expirationDate,
+    location,
+    cost,
+    createdDate,
+  } = req.body;
+
+  if (!userId?.trim()) return bad(res, "userId required");
+  if (!ingredientName?.trim()) return bad(res, "ingredientName required");
+
+  const qty = Number(quantity);
+  if (!Number.isFinite(qty) || qty < 0) return bad(res, "quantity must be ≥ 0");
+
+  if (!unit || !INV_UNITS.has(unit)) return bad(res, "invalid unit");
+  if (!category || !INV_CATEGORIES.has(category)) return bad(res, "invalid category");
+  if (!location || !INV_LOCATIONS.has(location)) return bad(res, "invalid location");
+
+  if (!ISO_DATE_REGEX.test(purchaseDate || ""))
+    return bad(res, "bad purchaseDate");
+  if (!ISO_DATE_REGEX.test(expirationDate || ""))
+    return bad(res, "bad expirationDate");
+  if (new Date(expirationDate) < new Date(purchaseDate))
+    return bad(res, "expiration before purchase");
+
+  const c = Number(cost);
+  if (!Number.isFinite(c) || c < 0) return bad(res, "cost must be ≥ 0");
+
+  const cd = createdDate || new Date().toISOString().split("T")[0];
+  if (!ISO_DATE_REGEX.test(cd)) return bad(res, "bad createdDate");
+  req.body.createdDate = cd;
+
+  next();
 }
 
-app.use(authMiddleware);
+/* ---------- Pantry match helpers (A1 HD5) ---------- */
+function normalize(str) {
+  return String(str || "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+const STOPWORDS = new Set([
+  "g",
+  "kg",
+  "ml",
+  "l",
+  "tbsp",
+  "tsp",
+  "cup",
+  "cups",
+  "large",
+  "small",
+  "ripe",
+  "fresh",
+  "pieces",
+  "slice",
+  "slices",
+]);
+function ingredientKeywords(line) {
+  const words = normalize(line).split(" ");
+  const keep = words.filter((w) => w && !STOPWORDS.has(w) && isNaN(Number(w)));
+  return keep.slice(-2).join(" ");
+}
+function inventoryMatchScore(ingredientLine, invItemName) {
+  const a = normalize(ingredientLine);
+  const b = normalize(invItemName);
+  if (a.includes(b) || b.includes(a)) return 1;
+  const kw = ingredientKeywords(ingredientLine);
+  if (kw && (b.includes(kw) || kw.includes(b))) return 0.8;
+  return 0;
+}
 
-/* ---------- Basic Routes ---------- */
-app.get("/", (req, res) => res.redirect(`/home-${STUDENT_ID}`));
+/* =================================================================== */
+/*                         AUTH (Register / Login)                      */
+/* =================================================================== */
 
-app.get(`/home-${STUDENT_ID}`, (req, res) => {
-  const u = req.user;
-  res.type("html").send(`
-    <h1>CloudKitchen Pro</h1>
-    <p>Server is running and MongoDB connection is ready.</p>
-    ${
-      u
-        ? `<div><strong>Logged in:</strong> ${u.fullname} (${u.email}) — ${u.role} | <a href="/logout-${STUDENT_ID}">Logout</a></div>`
-        : `<div><a href="/login-${STUDENT_ID}">Login</a> | <a href="/register-${STUDENT_ID}">Register</a></div>`
-    }
-  `);
-});
+const PASSWORD_COMPLEXITY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?\d[\d\s-]{6,}$/;                    
+const ROLES = new Set(["admin", "chef", "manager"]);
 
-/* ---------- Registration ---------- */
 app.get(`/register-${STUDENT_ID}`, (req, res) => {
-  res.render("register", { studentId: STUDENT_ID, errors: [], data: {} });
+  res.render("register", { studentId: STUDENT_ID, error: null });
 });
 
-app.post(`/register-${STUDENT_ID}`, async (req, res) => {
+app.post(`/api/register-${STUDENT_ID}`, async (req, res) => {
   try {
     const { email, password, fullname, role, phone } = req.body;
-    const errors = [];
-    if (!email || !password || !fullname || !role || !phone) errors.push("All fields are required.");
 
-    const existing = await User.findOne({ email });
-    if (existing) errors.push("Email already registered.");
-
-    if (errors.length) {
-      return res.status(400).render("register", {
-        studentId: STUDENT_ID,
-        errors,
-        data: { email, fullname, role, phone },
-      });
+    if (!email || !password || !fullname || !role || !phone) {
+      return res.render("register", { studentId: STUDENT_ID, error: "All fields are required." });
     }
 
-    const user = new User({ email, password, fullname, role, phone });
-    await user.save();
-    res.redirect(`/login-${STUDENT_ID}`);
-  } catch (e) {
-    res.status(400).render("register", {
-      studentId: STUDENT_ID,
-      errors: [e.message],
-      data: req.body,
-    });
+        if (!EMAIL_REGEX.test(email)) {
+      return res.render("register", { studentId: STUDENT_ID, error: "Please enter a valid email address." });
+    }
+    if (!PASSWORD_COMPLEXITY.test(password)) {
+      return res.render("register", {
+        studentId: STUDENT_ID,
+        error: "Password must be 8+ chars and include uppercase, lowercase, number, and special character.",
+      });
+    }
+    if (!ROLES.has(role)) {
+      return res.render("register", { studentId: STUDENT_ID, error: "Role must be admin, chef, or manager." });
+    }
+    if (!PHONE_REGEX.test(phone)) {
+      return res.render("register", { studentId: STUDENT_ID, error: "Please enter a valid phone number." });
+    }
+
+    
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.render("register", { studentId: STUDENT_ID, error: "Email already registered." });
+    }
+
+    
+    const count = await User.countDocuments();
+    const userId = `U-${String(count + 1).padStart(5, "0")}`;
+
+    await User.create({ userId, email, password, fullname, role, phone });
+    return res.redirect(`/login-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Register error:", err);
+    return res.render("register", { studentId: STUDENT_ID, error: "Registration failed. Try again." });
   }
 });
 
-/* ---------- Login ---------- */
 app.get(`/login-${STUDENT_ID}`, (req, res) => {
-  res.render("login", { studentId: STUDENT_ID, errors: [], data: {} });
+  res.render("login", { studentId: STUDENT_ID, error: null });
 });
 
-app.post(`/login-${STUDENT_ID}`, async (req, res) => {
+app.post(`/api/login-${STUDENT_ID}`, async (req, res) => {
   try {
     const { email, password } = req.body;
-    const errors = [];
-    if (!email || !password) errors.push("Email and password are required.");
 
-    const user = await User.findOne({ email, password });
-    if (!user) errors.push("Invalid email or password.");
-
-    if (errors.length) {
-      return res.status(400).render("login", {
-        studentId: STUDENT_ID,
-        errors,
-        data: { email },
-      });
+    
+    const user = await User.findOne({ email });
+    if (!user || user.password !== password) {
+      return res.render("login", { studentId: STUDENT_ID, error: "Invalid email or password." });
     }
 
-    const token = createToken();
-    sessions[token] = { userId: user.userId, email: user.email, fullname: user.fullname, role: user.role };
-    res.setHeader("Set-Cookie", `sid=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax`);
-    res.redirect(`/home-${STUDENT_ID}`);
-  } catch (e) {
-    res.status(400).render("login", {
-      studentId: STUDENT_ID,
-      errors: [e.message],
-      data: { email: req.body.email || "" },
+    
+    setAuthCookie(res, {
+      userId: user.userId,
+      email: user.email,
+      fullname: user.fullname,
+      role: user.role,
     });
+
+    return res.redirect(`/home-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.render("login", { studentId: STUDENT_ID, error: "Login failed. Try again." });
   }
 });
 
-/* ---------- Logout ---------- */
-app.get(`/logout-${STUDENT_ID}`, (req, res) => {
-  const token = parseCookies(req).sid;
-  if (token) delete sessions[token];
-  res.setHeader("Set-Cookie", "sid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+app.post(`/logout-${STUDENT_ID}`, (req, res) => {
+  clearAuthCookie(res);
   res.redirect(`/login-${STUDENT_ID}`);
 });
 
-/* ---------- 404 ---------- */
-app.use((req, res) => {
-  res.status(404).send("Page not found");
+
+function requireChef(req, res, next) {
+  const u = getAuthFromCookie(req);
+  if (u && u.role === "chef") return next();
+  return res.status(403).render("error", {
+    studentId: STUDENT_ID,
+    message: "Recipes are for chefs only.",
+  });
+}
+
+
+/* =================================================================== */
+/*                             RECIPES (A1)                             */
+/* =================================================================== */
+
+app.get(`/recipes-${STUDENT_ID}`, requireChef, (req, res) => {
+  res.render("recipes", {
+    studentId: STUDENT_ID,
+    recipes: recipes.map((r) => (r.toJSON ? r.toJSON() : r)),
+  });
 });
+
+app.get(`/add-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+  res.render("addRecipe", {
+    studentId: STUDENT_ID,
+    mealTypes: [...MEAL_TYPES],
+    difficulties: [...DIFFICULTIES],
+  });
+});
+
+app.post(
+  `/api/add-recipe-${STUDENT_ID}`,
+  requireChef,
+  validateRecipeBody,
+  (req, res) => {
+    const body = { ...req.body };
+    const ing = Array.isArray(body.ingredients)
+      ? body.ingredients
+      : toLines(body.ingredients);
+    const inst = Array.isArray(body.instructions)
+      ? body.instructions
+      : toLines(body.instructions);
+
+    recipes.push({
+      recipeId: nextId("R", recipes, RECIPE_ID_REGEX),
+      title: body.title.trim(),
+      chef: body.chef.trim(),
+      ingredients: ing,
+      instructions: inst,
+      mealType: body.mealType,
+      cuisineType: body.cuisineType.trim(),
+      prepTime: Number(body.prepTime),
+      difficulty: body.difficulty,
+      servings: Number(body.servings),
+      createdDate: body.createdDate,
+    });
+
+    res.redirect(`/recipes-${STUDENT_ID}`);
+  }
+);
+
+app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, (req, res) => {
+  const { mealType, cuisineType, difficulty } = req.query;
+  let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+  if (mealType && mealType !== "All")
+    data = data.filter((r) => r.mealType === mealType);
+  if (cuisineType && cuisineType.trim())
+    data = data.filter((r) =>
+      (r.cuisineType || "").toLowerCase().includes(cuisineType.toLowerCase())
+    );
+  if (difficulty && difficulty !== "All")
+    data = data.filter((r) => r.difficulty === difficulty);
+
+  res.render("filterRecipes", {
+    studentId: STUDENT_ID,
+    recipes: data,
+    selected: {
+      mealType: mealType || "All",
+      cuisineType: cuisineType || "",
+      difficulty: difficulty || "All",
+    },
+  });
+});
+
+app.get(`/search-recipes-${STUDENT_ID}`, requireChef, (req, res) => {
+  const q = String(req.query.q || "").trim().toLowerCase();
+  let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+  if (q) {
+    data = data.filter(
+      (r) =>
+        (r.title || "").toLowerCase().includes(q) ||
+        (r.chef || "").toLowerCase().includes(q) ||
+        (r.cuisineType || "").toLowerCase().includes(q)
+    );
+  }
+  res.render("searchRecipes", {
+    studentId: STUDENT_ID,
+    q: req.query.q || "",
+    results: data,
+  });
+});
+
+// Scale recipe (A1 HD2)
+app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+  try {
+    const allRecipes = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+
+    if (!allRecipes.length) {
+      return res.render("scaleRecipe", {
+        studentId: STUDENT_ID,
+        allRecipes,
+        selected: null,
+        newServings: "",
+        scaledIngredients: [],
+        noRecipes: true,
+      });
+    }
+
+    const { recipeId } = req.query;
+    const selected =
+      allRecipes.find((r) => r.recipeId === recipeId) || allRecipes[0];
+
+    const rawNew = req.query.newServings;
+    const newServings =
+      rawNew && Number(rawNew) > 0
+        ? String(rawNew)
+        : String((Number(selected.servings) || 1) * 2);
+
+    const factor = Number(newServings) / (Number(selected.servings) || 1);
+    const scaledIngredients = (selected.ingredients || []).map((line) => {
+      const m = String(line).match(/^(\d+(?:\.\d+)?)(.*)$/);
+      if (!m) return line;
+      const qty = parseFloat(m[1]) * factor;
+      return `${(Math.round(qty * 100) / 100).toString()}${m[2]}`;
+    });
+
+    return res.render("scaleRecipe", {
+      studentId: STUDENT_ID,
+      allRecipes,
+      selected,
+      newServings,
+      scaledIngredients,
+      noRecipes: false,
+    });
+  } catch (err) {
+    console.error("Scale route error:", err);
+    return res.status(500).render("error", {
+      message: err.message || "Scale page failed.",
+    });
+  }
+});
+
+/* ----- Delete recipe (confirm page + POST) ----- */
+app.get(`/delete-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+  const all = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+  const selected = all.find((r) => r.recipeId === req.query.recipeId) || null;
+  const msg = req.query.msg || "";
+  res.render("deleteRecipe", { studentId: STUDENT_ID, recipes: all, selected, msg });
+});
+
+app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+  const { recipeId, confirm } = req.body || {};
+  if (!recipeId || !RECIPE_ID_REGEX.test(recipeId)) {
+    return bad(res, "Invalid recipeId.");
+  }
+  if (!confirm) {
+    return res.redirect(
+      `/delete-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(
+        recipeId
+      )}&msg=${encodeURIComponent("Please tick the confirmation box.")}`
+    );
+  }
+  const idx = recipes.findIndex(
+    (r) => (r.toJSON ? r.toJSON().recipeId : r.recipeId) === recipeId
+  );
+  if (idx === -1) {
+    return bad(res, "Recipe ID not found.");
+  }
+  recipes.splice(idx, 1);
+  return res.redirect(`/recipes-${STUDENT_ID}`);
+});
+
+/* =================================================================== */
+/*                           INVENTORY (A1)                             */
+/* =================================================================== */
+
+app.get(`/inventory-${STUDENT_ID}`, (req, res) => {
+  const items = inventory.map((i) => {
+    const plain = i.toJSON ? i.toJSON() : i;
+    const dte = daysUntil(plain.expirationDate);
+    const low = isLowStockByUnit(plain.quantity, plain.unit);
+    return {
+      ...plain,
+      daysToExpire: dte,
+      isExpiringSoon: dte <= 3,
+      isExpired: dte < 0,
+      isLowStock: low,
+    };
+  });
+  const totalValue = sumTotalInventoryValue(items);
+  const lowStockCount = items.filter((x) => x.isLowStock).length;
+
+  res.render("inventory", {
+    studentId: STUDENT_ID,
+    items,
+    totalValue: totalValue.toFixed(2),
+    lowStockCount,
+  });
+});
+
+app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
+  res.render("addInventory", {
+    studentId: STUDENT_ID,
+    categories: [...INV_CATEGORIES],
+    locations: [...INV_LOCATIONS],
+    units: [...INV_UNITS],
+  });
+});
+
+app.post(
+  `/api/add-inventory-${STUDENT_ID}`,
+  validateInventoryBody,
+  (req, res) => {
+    const b = req.body;
+    inventory.push({
+      inventoryId: nextId("I", inventory, INVENTORY_ID_REGEX),
+      userId: b.userId.trim(),
+      ingredientName: b.ingredientName.trim(),
+      quantity: Number(b.quantity),
+      unit: b.unit,
+      category: b.category,
+      purchaseDate: b.purchaseDate,
+      expirationDate: b.expirationDate,
+      location: b.location,
+      cost: Number(b.cost),
+      createdDate: b.createdDate,
+    });
+    res.redirect(`/inventory-${STUDENT_ID}`);
+  }
+);
+
+/* ----- Delete inventory (POST) ----- */
+app.post(`/api/delete-inventory-${STUDENT_ID}`, (req, res) => {
+  const { inventoryId } = req.body || {};
+  if (!inventoryId || !INVENTORY_ID_REGEX.test(inventoryId)) {
+    return bad(res, "Invalid inventoryId.");
+  }
+  const idx = inventory.findIndex(
+    (i) => (i.toJSON ? i.toJSON().inventoryId : i.inventoryId) === inventoryId
+  );
+  if (idx === -1) {
+    return bad(res, "Inventory ID not found.");
+  }
+  inventory.splice(idx, 1);
+  return res.redirect(`/inventory-${STUDENT_ID}`);
+});
+
+/* ---------- Recipe–Inventory integration (A1 HD5) ---------- */
+app.get(`/check-ingredients-${STUDENT_ID}`, (req, res) => {
+  const recipeId = String(req.query.recipeId || "");
+  const allRecipes = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+  const selected = allRecipes.find((r) => r.recipeId === recipeId) || allRecipes[0] || null;
+
+  let result = null;
+  if (selected) {
+    const inv = inventory.map((i) => (i.toJSON ? i.toJSON() : i));
+    const have = [];
+    const missing = [];
+    selected.ingredients.forEach((line) => {
+      let best = { score: 0, item: null };
+      inv.forEach((it) => {
+        const score = inventoryMatchScore(line, it.ingredientName);
+        if (score > best.score) best = { score, item: it };
+      });
+      if (best.score >= 0.8 && best.item)
+        have.push({ line, matchedItem: best.item });
+      else missing.push({ line });
+    });
+    const pct = selected.ingredients.length
+      ? Math.round((have.length / selected.ingredients.length) * 100)
+      : 0;
+    result = { have, missing, pct };
+  }
+
+  res.render("checkIngredients", {
+    studentId: STUDENT_ID,
+    allRecipes,
+    selected,
+    result,
+  });
+});
+
+app.get(`/suggest-recipes-${STUDENT_ID}`, (req, res) => {
+  const threshold = Math.max(0, Math.min(100, Number(req.query.threshold) || 60));
+  const allRecipes = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+  const inv = inventory.map((i) => (i.toJSON ? i.toJSON() : i));
+
+  const scored = allRecipes
+    .map((r) => {
+      let have = 0;
+      r.ingredients.forEach((line) => {
+        let ok = false;
+        for (const it of inv) {
+          if (inventoryMatchScore(line, it.ingredientName) >= 0.8) {
+            ok = true;
+            break;
+          }
+        }
+        if (ok) have += 1;
+      });
+      const total = r.ingredients.length || 1;
+      const pct = Math.round((have / total) * 100);
+      return { recipe: r, pct };
+    })
+    .sort((a, b) => b.pct - a.pct);
+
+  const suggested = scored.filter((x) => x.pct >= threshold);
+  res.render("suggestRecipes", {
+    studentId: STUDENT_ID,
+    threshold,
+    suggested,
+    all: scored,
+  });
+});
+
+/* ---------- Debug routes list ---------- */
+// Root -> Home
+app.get("/", (req, res) => res.redirect(`/home-${STUDENT_ID}`));
+
+app.get(`/home-${STUDENT_ID}`, (req, res) => {
+  const user = getAuthFromCookie(req);
+  if (!user) return res.redirect(`/login-${STUDENT_ID}`);
+
+  const cuisineSet = new Set(
+    recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))
+  );
+  const totalValue = sumTotalInventoryValue(inventory);
+
+  const recentRecipes = recipes
+    .map(r => (r.toJSON ? r.toJSON() : r))
+    .slice(-3)
+    .reverse();
+
+  const expiringItems = inventory
+    .map(i => {
+      const x = i.toJSON ? i.toJSON() : i;
+      return { ...x, daysToExpire: daysUntil(x.expirationDate) };
+    })
+    .sort((a, b) => a.daysToExpire - b.daysToExpire)
+    .filter(x => x.daysToExpire <= 3)
+    .slice(0, 3);
+
+  res.render("index", {
+    studentId: STUDENT_ID,
+    stats: {
+      recipeCount: recipes.length,
+      inventoryCount: inventory.length,
+      cuisineTypes: cuisineSet.size,
+      totalInventoryValue: totalValue.toFixed(2),
+    },
+    recentRecipes,
+    expiringItems,
+  });
+});
+
+app.get(`/routes-${STUDENT_ID}`, (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((m) => {
+    if (m.route) {
+      const methods = Object.keys(m.route.methods).join(",").toUpperCase();
+      routes.push(`${methods.padEnd(6)} ${m.route.path}`);
+    }
+  });
+  res.type("text").send(routes.sort().join("\n"));
+});
+
+/* ---------- Errors ---------- */
+app.get(`/error-${STUDENT_ID}`, (req, res) => {
+  const message = req.query.msg || "Invalid request.";
+  res.status(400).render("error", { studentId: STUDENT_ID, message });
+});
+
+app.use((err, req, res, next) => {
+  console.error("💥 Server error:", err);
+  res
+    .status(500)
+    .render("error", { studentId: STUDENT_ID, message: err.message || "Server error" });
+});
+
+app.use((req, res) => {
+  res.status(404).render("notfound", { studentId: STUDENT_ID, path: req.originalUrl });
+});
+
 
 /* ---------- Start ---------- */
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/home-${STUDENT_ID}`);
+  console.log(
+    `✅ CloudKitchen Pro running at http://localhost:${PORT}/home-${STUDENT_ID}`
+  );
 });

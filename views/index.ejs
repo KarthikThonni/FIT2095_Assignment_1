@@ -2,9 +2,10 @@
 <%- include("partials/header", { title: "Home", studentId }) %>
 
   <div class="container my-5">
-    <h1 class="mb-4"> Welcome to Recipe Hub</h1>
+    <h1 class="mb-4">👋 Welcome to Recipe Hub</h1>
     <p class="lead">
       Manage your <strong>recipes</strong> and <strong>inventory</strong> easily.
+      Your Student ID: <code><%= studentId %></code>
     </p>
 
     <div class="row g-4 mt-4">
@@ -12,7 +13,7 @@
       <div class="col-md-6">
         <div class="card shadow-sm h-100">
           <div class="card-body">
-            <h4 class="card-title">Recipes</h4>
+            <h4 class="card-title">📘 Recipes</h4>
             <p class="card-text">Create, browse, filter, search and scale recipes.</p>
             <div class="d-grid gap-2">
               <a href="/recipes-<%= studentId %>" class="btn btn-outline-primary">View Recipes</a>
@@ -29,7 +30,7 @@
       <div class="col-md-6">
         <div class="card shadow-sm h-100">
           <div class="card-body">
-            <h4 class="card-title">Inventory</h4>
+            <h4 class="card-title">🛒 Inventory</h4>
             <p class="card-text">Track pantry items, costs, and freshness.</p>
             <div class="d-grid gap-2">
               <a href="/inventory-<%= studentId %>" class="btn btn-outline-primary">View Inventory</a>
@@ -44,7 +45,7 @@
 
     <!-- Stats Preview -->
     <div class="alert alert-info mt-5">
-      <h5 class="mb-1">Quick Stats</h5>
+      <h5 class="mb-1">📊 Quick Stats</h5>
       <ul class="mb-0">
         <li>Total Recipes: <%= stats.recipeCount %></li>
         <li>Total Inventory Items: <%= stats.inventoryCount %></li>
@@ -56,7 +57,7 @@
     <!-- Recent Activity -->
     <div class="row mt-4">
       <div class="col-md-6">
-        <h5> Recent Recipes</h5>
+        <h5>🆕 Recent Recipes</h5>
         <% if (recentRecipes.length === 0) { %>
           <p class="text-muted">No recipes yet.</p>
         <% } else { %>
