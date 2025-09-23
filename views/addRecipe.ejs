@@ -13,8 +13,9 @@
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Chef (Name-ID)</label>
-          <input name="chef" class="form-control" placeholder="e.g., MarioRossi-87654321" required />
+          <label class="form-label">Chef</label>
+          <input name="chef" class="form-control" value="<%= user?.fullname %>" readonly />
+          <div class="form-text">User ID: <code><%= user?.userId %></code></div>
         </div>
 
         <div class="col-md-6">

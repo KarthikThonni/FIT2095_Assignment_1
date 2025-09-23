@@ -15,7 +15,8 @@
 
         <div class="col-md-6">
           <label class="form-label">User ID</label>
-          <input name="userId" class="form-control" placeholder="e.g. SarahJones-12345678" required />
+          <input name="userId" class="form-control" value="<%= user?.userId %>" readonly />
+          <div class="form-text">This is set from your login and cannot be changed.</div>
         </div>
 
         <div class="col-md-6">

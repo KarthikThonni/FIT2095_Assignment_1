@@ -375,88 +375,34 @@ function requireChef(req, res, next) {
 
 
 /* =================================================================== */
-/*                             RECIPES (A1)                             */
+/*                             RECIPES (A2 Mongo)                      */
 /* =================================================================== */
+import { Recipe } from "./models/Recipe.js";   // make sure this model exists
 
-// List recipes (Mongo)
+// List all recipes (chefs only)
 app.get(`/recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const docs = await Recipe.find({}).sort({ createdDate: -1 }).lean();
-
-    res.render("recipes", {
-      studentId: STUDENT_ID,
-      recipes: docs,           
-    });
+    const recipes = await Recipe.find().lean(); // .lean() gives plain objects
+    res.render("recipes", { studentId: STUDENT_ID, recipes });
   } catch (err) {
-    console.error("Recipes list error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load recipes." });
+    console.error("Error loading recipes:", err);
+    res.render("error", { studentId: STUDENT_ID, message: "Failed to load recipes." });
   }
 });
 
-
-app.get(`/add-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
-  res.render("addRecipe", {
-    studentId: STUDENT_ID,
-    mealTypes: [...MEAL_TYPES],
-    difficulties: [...DIFFICULTIES],
-  });
-});
-
-// Add recipe (Mongo) — chefs only
-// POST create recipe (Mongo)
-app.post(`/api/add-recipe-${STUDENT_ID}`, requireChef, validateRecipeBody, async (req, res) => {
-  try {
-    const auth = getAuthFromCookie(req);
-    if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
-
-    
-    const count = await Recipe.countDocuments();
-    const recipeId = `R-${String(count + 1).padStart(5, "0")}`;
-
-    const body = req.body;
-    const ingredients = Array.isArray(body.ingredients) ? body.ingredients : toLines(body.ingredients);
-    const instructions = Array.isArray(body.instructions) ? body.instructions : toLines(body.instructions);
-
-    await Recipe.create({
-      recipeId,
-      userId: auth.userId,            
-      title: body.title.trim(),
-      chef: body.chef.trim(),
-      ingredients,
-      instructions,
-      mealType: body.mealType,
-      cuisineType: body.cuisineType.trim(),
-      prepTime: Number(body.prepTime),
-      difficulty: body.difficulty,
-      servings: Number(body.servings), 
-      createdDate: body.createdDate,
-    });
-
-    res.redirect(`/recipes-${STUDENT_ID}`);
-  } catch (err) {
-    console.error("Add recipe error:", err);
-    return res.status(400).render("error", { studentId: STUDENT_ID, message: "Failed to add recipe." });
-  }
-});
-
-
-// FILTER (Mongo)
+// Filter recipes
 app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const { mealType, cuisineType, difficulty } = req.query;
-    const q = {};
+    const query = {};
+    if (mealType && mealType !== "All") query.mealType = mealType;
+    if (cuisineType && cuisineType.trim()) query.cuisineType = new RegExp(cuisineType, "i");
+    if (difficulty && difficulty !== "All") query.difficulty = difficulty;
 
-    if (mealType && mealType !== "All") q.mealType = mealType;
-    if (difficulty && difficulty !== "All") q.difficulty = difficulty;
-    if (cuisineType && cuisineType.trim()) {
-      q.cuisineType = { $regex: cuisineType.trim(), $options: "i" };
-    }
-
-    const docs = await Recipe.find(q).sort({ createdDate: -1 }).lean();
-
+    const recipes = await Recipe.find(query).lean();
     res.render("filterRecipes", {
       studentId: STUDENT_ID,
-      recipes: docs,
+      recipes,
       selected: {
         mealType: mealType || "All",
         cuisineType: cuisineType || "",
@@ -464,45 +410,40 @@ app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Filter recipes error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to filter recipes." });
+    console.error("Error filtering recipes:", err);
+    res.render("error", { studentId: STUDENT_ID, message: "Filter failed." });
   }
 });
 
-
-// SEARCH (Mongo)
+// Search recipes
 app.get(`/search-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const qText = String(req.query.q || "").trim();
-    let results = [];
-
-    if (qText) {
-      const rx = new RegExp(qText, "i");
-      results = await Recipe.find({
-        $or: [{ title: rx }, { chef: rx }, { cuisineType: rx }],
-      })
-        .sort({ createdDate: -1 })
-        .lean();
-    } else {
-      results = await Recipe.find({}).sort({ createdDate: -1 }).lean();
+    const q = String(req.query.q || "").trim();
+    let recipes = [];
+    if (q) {
+      recipes = await Recipe.find({
+        $or: [
+          { title: new RegExp(q, "i") },
+          { chef: new RegExp(q, "i") },
+          { cuisineType: new RegExp(q, "i") },
+        ],
+      }).lean();
     }
-
     res.render("searchRecipes", {
       studentId: STUDENT_ID,
-      q: qText,
-      results,
+      q,
+      results: recipes,
     });
   } catch (err) {
-    console.error("Search recipes error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to search recipes." });
+    console.error("Error searching recipes:", err);
+    res.render("error", { studentId: STUDENT_ID, message: "Search failed." });
   }
 });
 
-// SCALE (Mongo)
+// Scale recipe
 app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const allRecipes = await Recipe.find({}).sort({ title: 1 }).lean();
-
+    const allRecipes = await Recipe.find().lean();
     if (!allRecipes.length) {
       return res.render("scaleRecipe", {
         studentId: STUDENT_ID,
@@ -516,7 +457,7 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
 
     const { recipeId } = req.query;
     const selected =
-      (recipeId ? await Recipe.findOne({ recipeId }).lean() : null) || allRecipes[0];
+      allRecipes.find((r) => r.recipeId === recipeId) || allRecipes[0];
 
     const rawNew = req.query.newServings;
     const newServings =
@@ -525,8 +466,6 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
         : String((Number(selected.servings) || 1) * 2);
 
     const factor = Number(newServings) / (Number(selected.servings) || 1);
-
-    // same simple parser you had: scales a leading number
     const scaledIngredients = (selected.ingredients || []).map((line) => {
       const m = String(line).match(/^(\d+(?:\.\d+)?)(.*)$/);
       if (!m) return line;
@@ -534,7 +473,7 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
       return `${(Math.round(qty * 100) / 100).toString()}${m[2]}`;
     });
 
-    return res.render("scaleRecipe", {
+    res.render("scaleRecipe", {
       studentId: STUDENT_ID,
       allRecipes,
       selected,
@@ -543,48 +482,47 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
       noRecipes: false,
     });
   } catch (err) {
-    console.error("Scale route error:", err);
-    return res.status(500).render("error", {
-      studentId: STUDENT_ID,
-      message: "Failed to load scaling page.",
-    });
+    console.error("Scale error:", err);
+    res.render("error", { studentId: STUDENT_ID, message: "Scaling failed." });
   }
 });
 
-
-/* ----- Delete recipe (confirm page + POST) ----- */
+// Delete recipe (confirm page)
 app.get(`/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const all = await Recipe.find({}).sort({ createdDate: -1 }).lean();
-    const selected = req.query.recipeId ? await Recipe.findOne({ recipeId: req.query.recipeId }).lean() : null;
-    const msg = req.query.msg || "";
-    res.render("deleteRecipe", { studentId: STUDENT_ID, recipes: all, selected, msg });
+    const all = await Recipe.find().lean();
+    const selected = all.find((r) => r.recipeId === req.query.recipeId) || null;
+    res.render("deleteRecipe", {
+      studentId: STUDENT_ID,
+      recipes: all,
+      selected,
+      msg: req.query.msg || "",
+    });
   } catch (err) {
     console.error("Delete page error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load delete page." });
+    res.render("error", { studentId: STUDENT_ID, message: "Delete page failed." });
   }
 });
 
-// Delete recipe (Mongo)
+// Delete recipe (POST)
 app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
-  const { recipeId, confirm } = req.body || {};
-  if (!recipeId || !RECIPE_ID_REGEX.test(recipeId)) {
-    return bad(res, "Invalid recipeId.");
-  }
-  if (!confirm) {
-    return res.redirect(`/delete-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(recipeId)}&msg=${encodeURIComponent("Please tick the confirmation box.")}`);
-  }
   try {
-    const result = await Recipe.deleteOne({ recipeId });
-    if (result.deletedCount === 0) {
-      return bad(res, "Recipe ID not found.");
+    const { recipeId, confirm } = req.body;
+    if (!confirm) {
+      return res.redirect(
+        `/delete-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(
+          recipeId
+        )}&msg=${encodeURIComponent("Please tick the confirmation box.")}`
+      );
     }
-    return res.redirect(`/recipes-${STUDENT_ID}`);
+    await Recipe.deleteOne({ recipeId });
+    res.redirect(`/recipes-${STUDENT_ID}`);
   } catch (err) {
     console.error("Delete recipe error:", err);
-    return bad(res, "Failed to delete recipe.");
+    res.render("error", { studentId: STUDENT_ID, message: "Delete failed." });
   }
 });
+
 
 /* =================================================================== */
 /*                           INVENTORY (A1)                             */
@@ -606,6 +544,7 @@ app.get(`/inventory-${STUDENT_ID}`, async (req, res) => {
       };
     });
 
+    // aggregation: total value = sum(quantity * cost)
     const agg = await Inventory.aggregate([
       { $project: { value: { $multiply: ["$quantity", "$cost"] } } },
       { $group: { _id: null, total: { $sum: "$value" } } }
@@ -637,41 +576,60 @@ app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
 
 app.post(
   `/api/add-inventory-${STUDENT_ID}`,
+  injectUserIdFromCookie,
   validateInventoryBody,
-  (req, res) => {
-    const b = req.body;
-    inventory.push({
-      inventoryId: nextId("I", inventory, INVENTORY_ID_REGEX),
-      userId: b.userId.trim(),
-      ingredientName: b.ingredientName.trim(),
-      quantity: Number(b.quantity),
-      unit: b.unit,
-      category: b.category,
-      purchaseDate: b.purchaseDate,
-      expirationDate: b.expirationDate,
-      location: b.location,
-      cost: Number(b.cost),
-      createdDate: b.createdDate,
-    });
-    res.redirect(`/inventory-${STUDENT_ID}`);
+  async (req, res) => {
+    try {
+      const b = req.body;
+
+      const count = await Inventory.countDocuments();
+      const inventoryId = `I-${String(count + 1).padStart(5, "0")}`;
+
+      await Inventory.create({
+        inventoryId,
+        userId: req.body.userId,            
+        ingredientName: b.ingredientName.trim(),
+        quantity: Number(b.quantity),
+        unit: b.unit,
+        category: b.category,
+        purchaseDate: b.purchaseDate,
+        expirationDate: b.expirationDate,
+        location: b.location,
+        cost: Number(b.cost),
+        createdDate: b.createdDate,
+      });
+
+      res.redirect(`/inventory-${STUDENT_ID}`);
+    } catch (err) {
+      console.error("Add inventory error:", err);
+      res.status(400).render("error", { studentId: STUDENT_ID, message: "Invalid inventory data." });
+    }
   }
 );
 
 /* ----- Delete inventory (POST) ----- */
-app.post(`/api/delete-inventory-${STUDENT_ID}`, (req, res) => {
-  const { inventoryId } = req.body || {};
-  if (!inventoryId || !INVENTORY_ID_REGEX.test(inventoryId)) {
-    return bad(res, "Invalid inventoryId.");
+app.post(`/api/delete-inventory-${STUDENT_ID}`, async (req, res) => {
+  try {
+    const { inventoryId } = req.body || {};
+    if (!inventoryId) return bad(res, "Invalid inventoryId.");
+
+    const r = await Inventory.deleteOne({ inventoryId });
+    if (r.deletedCount === 0) return bad(res, "Inventory ID not found.");
+
+    res.redirect(`/inventory-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Delete inventory error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to delete item." });
   }
-  const idx = inventory.findIndex(
-    (i) => (i.toJSON ? i.toJSON().inventoryId : i.inventoryId) === inventoryId
-  );
-  if (idx === -1) {
-    return bad(res, "Inventory ID not found.");
-  }
-  inventory.splice(idx, 1);
-  return res.redirect(`/inventory-${STUDENT_ID}`);
 });
+
+function injectUserIdFromCookie(req, res, next) {
+  const auth = getAuthFromCookie(req);
+  if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
+  // force userId for any inventory create
+  req.body.userId = auth.userId;
+  next();
+}
 
 /* ---------- Recipe–Inventory integration (A1 HD5) ---------- */
 app.get(`/check-ingredients-${STUDENT_ID}`, (req, res) => {
