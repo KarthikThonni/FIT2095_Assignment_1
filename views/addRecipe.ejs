@@ -1,78 +1,87 @@
 <!DOCTYPE html>
 <%- include("partials/header", { title: "Add Recipe", studentId }) %>
 
-  <div class="container my-4">
-    <h1 class="mb-4">Add Recipe</h1>
+<div class="container my-4">
+  <h1 class="mb-3">Add Recipe</h1>
 
-    <form method="POST" action="/api/add-recipe-<%= studentId %>">
-      <div class="row g-3">
+  <% if (typeof error !== "undefined" && error) { %>
+    <div class="alert alert-danger"><%= error %></div>
+  <% } %>
 
-        <div class="col-md-6">
-          <label class="form-label">Title</label>
-          <input name="title" class="form-control" required />
-        </div>
+  <form method="POST" action="/api/add-recipe-<%= studentId %>" class="row g-3">
 
-        <div class="col-md-6">
-          <label class="form-label">Chef</label>
-          <input name="chef" class="form-control" value="<%= user?.fullname %>" readonly />
-          <div class="form-text">User ID: <code><%= user?.userId %></code></div>
-        </div>
+    <!-- Title -->
+    <div class="col-md-6">
+      <label class="form-label">Title</label>
+      <input name="title" type="text" class="form-control" required minlength="3" maxlength="100" />
+    </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Meal Type</label>
-          <select name="mealType" class="form-select" required>
-            <% mealTypes.forEach(mt => { %>
-              <option value="<%= mt %>"><%= mt %></option>
-            <% }) %>
-          </select>
-        </div>
+    <!-- Chef -->
+    <div class="col-md-6">
+      <label class="form-label">Chef</label>
+      <input name="chef" class="form-control" value="<%= user?.fullname %>" readonly />
+      <div class="form-text">User ID: <code><%= user?.userId %></code></div>
+    </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Cuisine Type</label>
-          <input name="cuisineType" class="form-control" placeholder="e.g., Italian" required />
-        </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Prep Time (mins)</label>
-          <input name="prepTime" type="number" min="0" class="form-control" required />
-        </div>
+    <!-- Meal Type -->
+    <div class="col-md-4">
+      <label class="form-label">Meal Type</label>
+      <select name="mealType" class="form-select" required>
+        <% mealTypes.forEach(m => { %>
+          <option value="<%= m %>"><%= m %></option>
+        <% }) %>
+      </select>
+    </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Difficulty</label>
-          <select name="difficulty" class="form-select" required>
-            <% difficulties.forEach(d => { %>
-              <option value="<%= d %>"><%= d %></option>
-            <% }) %>
-          </select>
-        </div>
+    <!-- Cuisine Type -->
+    <div class="col-md-4">
+      <label class="form-label">Cuisine Type</label>
+      <select name="cuisineType" class="form-select" required>
+        <% cuisines.forEach(c => { %>
+          <option value="<%= c %>"><%= c %></option>
+        <% }) %>
+      </select>
+    </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Servings</label>
-          <input name="servings" type="number" min="1" class="form-control" required />
-        </div>
+    <!-- Prep Time -->
+    <div class="col-md-4">
+      <label class="form-label">Prep Time (mins)</label>
+      <input name="prepTime" type="number" min="1" max="480" class="form-control" required />
+    </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Ingredients (one per line)</label>
-          <textarea name="ingredients" class="form-control" rows="6" placeholder="e.g. 400g spaghetti&#10;200g pancetta" required></textarea>
-        </div>
+    <!-- Difficulty -->
+    <div class="col-md-4">
+      <label class="form-label">Difficulty</label>
+      <select name="difficulty" class="form-select" required>
+        <% difficulties.forEach(d => { %>
+          <option value="<%= d %>"><%= d %></option>
+        <% }) %>
+      </select>
+    </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Instructions (one step per line)</label>
-          <textarea name="instructions" class="form-control" rows="6" placeholder="e.g. Boil salted water&#10;Cook pancetta until crispy" required></textarea>
-        </div>
+    <!-- Servings -->
+    <div class="col-md-4">
+      <label class="form-label">Servings</label>
+      <input name="servings" type="number" min="1" max="20" class="form-control" required />
+    </div>
 
-        <div class="col-md-6">
-          <label class="form-label">Created Date (YYYY-MM-DD)</label>
-          <input name="createdDate" type="text" class="form-control" placeholder="2025-07-21" required />
-        </div>
+    <!-- Ingredients -->
+    <div class="col-12">
+      <label class="form-label">Ingredients (one per line)</label>
+      <textarea name="ingredients" class="form-control" rows="4" required></textarea>
+    </div>
 
-      </div>
+    <!-- Instructions -->
+    <div class="col-12">
+      <label class="form-label">Instructions (one per line)</label>
+      <textarea name="instructions" class="form-control" rows="4" required></textarea>
+    </div>
 
-      <div class="mt-4 d-flex gap-2">
-        <button type="submit" class="btn btn-success">Save Recipe</button>
-        <a class="btn btn-secondary" href="/recipes-<%= studentId %>">Cancel</a>
-      </div>
-    </form>
-  </div>
+    <div class="col-12">
+      <button class="btn btn-success">Save Recipe</button>
+    </div>
+  </form>
+</div>
 
 <%- include("partials/footer") %>

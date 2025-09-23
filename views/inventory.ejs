@@ -58,7 +58,12 @@
               <td>
                 <form method="POST" action="/api/delete-inventory-<%= studentId %>">
                   <input type="hidden" name="inventoryId" value="<%= item.inventoryId %>">
-                  <button type="submit" class="btn btn-sm btn-danger">🗑 Delete</button>
+                  <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                  <a class="btn btn-sm btn-outline-primary"   
+                      href="/edit-inventory-<%= studentId %>?inventoryId=<%= item.inventoryId %>">  
+                        Edit  
+                  </a>
+
                 </form>
               </td>
             </tr>

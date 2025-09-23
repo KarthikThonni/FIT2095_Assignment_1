@@ -41,7 +41,7 @@
               <td><%= r.prepTime %></td>
               <td><%= r.servings %></td>
               <td class="d-flex flex-wrap gap-2">
-                <!-- NEW: Scale link -->
+                
                 <a
                   class="btn btn-sm btn-outline-primary"
                   href="/scale-recipe-<%= studentId %>?recipeId=<%= encodeURIComponent(r.recipeId) %>"
@@ -56,6 +56,12 @@
                   title="Delete with confirmation">
                       Delete
                 </a>
+
+                <a class="btn btn-sm btn-outline-primary"
+                   href="/edit-recipe-<%= studentId %>?recipeId=<%= r.recipeId %>">
+                    Edit
+                </a>
+
               </td>
             </tr>
           <% }) %>

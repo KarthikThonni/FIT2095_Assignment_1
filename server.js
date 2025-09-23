@@ -149,50 +149,38 @@ function bad(res, msg) {
 
 function validateRecipeBody(req, res, next) {
   const {
-    title,
-    chef,
-    mealType,
-    cuisineType,
-    prepTime,
-    difficulty,
-    servings,
-    ingredients,
-    instructions,
-    createdDate,
+    title, chef, mealType, cuisineType, prepTime,
+    difficulty, servings, ingredients, instructions, createdDate
   } = req.body;
 
   if (!title?.trim()) return bad(res, "title is required");
   if (!chef?.trim()) return bad(res, "chef is required");
   if (!mealType || !MEAL_TYPES.has(mealType)) return bad(res, "invalid mealType");
-  if (!cuisineType?.trim()) return bad(res, "cuisineType is required");
+
+
+  if (!cuisineType || !CUISINES.includes(cuisineType)) return bad(res, "invalid cuisineType");
 
   const pt = Number(prepTime);
-  if (!Number.isFinite(pt) || pt < 0) return bad(res, "prepTime must be ≥ 0");
+  if (!Number.isInteger(pt) || pt < 1 || pt > 480) return bad(res, "prepTime must be an integer 1–480");
 
-  if (!difficulty || !DIFFICULTIES.has(difficulty))
-    return bad(res, "invalid difficulty");
+  if (!difficulty || !DIFFICULTIES.has(difficulty)) return bad(res, "invalid difficulty");
 
   const sv = Number(servings);
-  if (!Number.isFinite(sv) || sv <= 0) return bad(res, "servings must be > 0");
+  if (!Number.isInteger(sv) || sv < 1 || sv > 20) return bad(res, "servings must be an integer 1–20");
 
-  const ingOk = Array.isArray(ingredients)
-    ? ingredients.length > 0
-    : toLines(ingredients).length > 0;
+  const ingOk = Array.isArray(ingredients) ? ingredients.length > 0 : toLines(ingredients).length > 0;
   if (!ingOk) return bad(res, "ingredients required");
 
-  const instOk = Array.isArray(instructions)
-    ? instructions.length > 0
-    : toLines(instructions).length > 0;
+  const instOk = Array.isArray(instructions) ? instructions.length > 0 : toLines(instructions).length > 0;
   if (!instOk) return bad(res, "instructions required");
 
   const cd = createdDate || new Date().toISOString().split("T")[0];
-  if (!ISO_DATE_REGEX.test(cd))
-    return bad(res, "createdDate must be YYYY-MM-DD");
+  if (!ISO_DATE_REGEX.test(cd)) return bad(res, "createdDate must be YYYY-MM-DD");
   req.body.createdDate = cd;
-  
 
   next();
 }
+
 
 function validateInventoryBody(req, res, next) {
   const {
@@ -377,18 +365,88 @@ function requireChef(req, res, next) {
 /* =================================================================== */
 /*                             RECIPES (A2 Mongo)                      */
 /* =================================================================== */
-import { Recipe } from "./models/Recipe.js";   // make sure this model exists
 
 // List all recipes (chefs only)
 app.get(`/recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const recipes = await Recipe.find().lean(); // .lean() gives plain objects
+    const recipes = await Recipe.find().lean(); 
     res.render("recipes", { studentId: STUDENT_ID, recipes });
   } catch (err) {
     console.error("Error loading recipes:", err);
     res.render("error", { studentId: STUDENT_ID, message: "Failed to load recipes." });
   }
 });
+
+/* ---------- Constants ---------- */
+const CUISINES = [
+  "Italian","Asian","Mexican","American","French","Indian","Mediterranean","Other"
+];
+
+/* ---------- Add Recipe ---------- */
+app.get(`/add-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+  res.render("addRecipe", {
+    studentId: STUDENT_ID,
+    mealTypes: [...MEAL_TYPES],
+    difficulties: [...DIFFICULTIES],
+    cuisines: CUISINES,
+    error: null
+  });
+});
+
+app.post(
+  `/api/add-recipe-${STUDENT_ID}`,
+  requireChef,
+  validateRecipeBody,
+  async (req, res) => {
+    try {
+      const auth = getAuthFromCookie(req);
+      if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
+
+      const body = { ...req.body };
+      const ingredients = Array.isArray(body.ingredients)
+        ? body.ingredients
+        : toLines(body.ingredients);
+      const instructions = Array.isArray(body.instructions)
+        ? body.instructions
+        : toLines(body.instructions);
+
+      const last = await Recipe.findOne().sort({ recipeId: -1 }).lean();
+      let nextNum = 1;
+      if (last?.recipeId) {
+        const m = last.recipeId.match(/R-(\d+)/);
+        if (m) nextNum = parseInt(m[1], 10) + 1;
+      }
+      const recipeId = `R-${String(nextNum).padStart(5, "0")}`;
+
+      await Recipe.create({
+        recipeId,
+        userId: auth.userId,              
+        title: body.title.trim(),
+        chef: auth.fullname,              
+        ingredients,
+        instructions,
+        mealType: body.mealType,
+        cuisineType: body.cuisineType,
+        prepTime: Number(body.prepTime),
+        difficulty: body.difficulty,
+        servings: Number(body.servings),
+        createdDate: body.createdDate,
+      });
+
+      return res.redirect(`/recipes-${STUDENT_ID}`);
+    } catch (err) {
+      console.error("Add recipe error:", err);
+      return res.render("addRecipe", {
+        studentId: STUDENT_ID,
+        mealTypes: [...MEAL_TYPES],
+        difficulties: [...DIFFICULTIES],
+        cuisines: CUISINES,
+        error: "Failed to save recipe. Please check your inputs.",
+      });
+    }
+  }
+);
+
 
 // Filter recipes
 app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
@@ -523,6 +581,75 @@ app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
+// EDIT RECIPE (GET) — chefs only
+app.get(`/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
+  try {
+    const { recipeId } = req.query;
+    if (!recipeId) return res.redirect(`/recipes-${STUDENT_ID}`);
+
+    const recipe = await Recipe.findOne({ recipeId }).lean();
+    if (!recipe) return res.redirect(`/recipes-${STUDENT_ID}`);
+
+    res.render("editRecipe", {
+      studentId: STUDENT_ID,
+      recipe,
+      mealTypes: [...MEAL_TYPES],
+      difficulties: [...DIFFICULTIES],
+      cuisines: CUISINES,
+      error: req.query.msg || null,
+    });
+  } catch (err) {
+    console.error("Edit recipe (GET) error:", err);
+    res.render("error", { studentId: STUDENT_ID, message: "Failed to load recipe." });
+  }
+});
+
+// EDIT RECIPE (POST) — chefs only
+app.post(`/api/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
+  try {
+    const { recipeId } = req.body;
+    if (!recipeId || !RECIPE_ID_REGEX.test(recipeId)) return bad(res, "Invalid recipeId.");
+
+    const body = { ...req.body };
+    const ingredients = Array.isArray(body.ingredients) ? body.ingredients : toLines(body.ingredients);
+    const instructions = Array.isArray(body.instructions) ? body.instructions : toLines(body.instructions);
+
+    if (!MEAL_TYPES.has(body.mealType)) return bad(res, "invalid mealType");
+    if (!CUISINES.includes(body.cuisineType)) return bad(res, "invalid cuisineType");
+
+    const pt = Number(body.prepTime);
+    const sv = Number(body.servings);
+    if (!Number.isInteger(pt) || pt < 1 || pt > 480) return bad(res, "prepTime must be 1–480");
+    if (!Number.isInteger(sv) || sv < 1 || sv > 20) return bad(res, "servings must be 1–20");
+    if (!DIFFICULTIES.has(body.difficulty)) return bad(res, "invalid difficulty");
+    if (!ingredients.length || !instructions.length) return bad(res, "ingredients/instructions required");
+
+    const auth = getAuthFromCookie(req);
+    const updateDoc = {
+      userId: auth.userId,
+      chef: auth.fullname,
+      title: body.title.trim(),
+      ingredients,
+      instructions,
+      mealType: body.mealType,
+      cuisineType: body.cuisineType,
+      prepTime: pt,
+      difficulty: body.difficulty,
+      servings: sv,
+      createdDate: body.createdDate, 
+    };
+
+    const updated = await Recipe.findOneAndUpdate({ recipeId }, { $set: updateDoc }, { runValidators: true });
+    if (!updated) return bad(res, "Recipe not found.");
+
+    res.redirect(`/recipes-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Edit recipe (POST) error:", err);
+    res.redirect(`/edit-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(req.body.recipeId)}&msg=${encodeURIComponent("Update failed. Check values.")}`);
+  }
+});
+
+
 
 /* =================================================================== */
 /*                           INVENTORY (A1)                             */
@@ -626,10 +753,74 @@ app.post(`/api/delete-inventory-${STUDENT_ID}`, async (req, res) => {
 function injectUserIdFromCookie(req, res, next) {
   const auth = getAuthFromCookie(req);
   if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
-  // force userId for any inventory create
   req.body.userId = auth.userId;
   next();
 }
+
+// EDIT INVENTORY (GET)
+app.get(`/edit-inventory-${STUDENT_ID}`, async (req, res) => {
+  try {
+    const { inventoryId } = req.query;
+    if (!inventoryId) return res.redirect(`/inventory-${STUDENT_ID}`);
+
+    const item = await Inventory.findOne({ inventoryId }).lean();
+    if (!item) return res.redirect(`/inventory-${STUDENT_ID}`);
+
+    res.render("editInventory", {
+      studentId: STUDENT_ID,
+      item,
+      categories: [...INV_CATEGORIES],
+      locations: [...INV_LOCATIONS],
+      units: ["pieces", "kg", "g", "ml", "L", "pack", "liters", "cups", "tbsp", "tsp", "dozen"],
+      error: null,
+    });
+  } catch (err) {
+    console.error("Edit inventory (GET) error:", err);
+    res.render("error", { studentId: STUDENT_ID, message: "Failed to load item." });
+  }
+});
+
+// EDIT INVENTORY (POST)
+app.post(`/api/edit-inventory-${STUDENT_ID}`, injectUserIdFromCookie, validateInventoryBody, async (req, res) => {
+  try {
+    const {
+      inventoryId, ingredientName, quantity, unit, category,
+      purchaseDate, expirationDate, location, cost, createdDate
+    } = req.body;
+
+    if (!inventoryId || !INVENTORY_ID_REGEX.test(inventoryId)) {
+      return bad(res, "Invalid inventoryId.");
+    }
+
+    const userId = getAuthFromCookie(req)?.userId;
+
+    const updated = await Inventory.findOneAndUpdate(
+      { inventoryId },
+      {
+        $set: {
+          userId,
+          ingredientName: ingredientName.trim(),
+          quantity: Number(quantity),
+          unit,
+          category,
+          purchaseDate,
+          expirationDate,
+          location,
+          cost: Number(cost),
+          createdDate,
+        },
+      },
+      { runValidators: true }
+    );
+
+    if (!updated) return bad(res, "Inventory item not found.");
+    res.redirect(`/inventory-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Edit inventory (POST) error:", err);
+    res.redirect(`/edit-inventory-${STUDENT_ID}?inventoryId=${encodeURIComponent(req.body.inventoryId)}&msg=${encodeURIComponent("Update failed. Check values.")}`);
+  }
+});
+
 
 /* ---------- Recipe–Inventory integration (A1 HD5) ---------- */
 app.get(`/check-ingredients-${STUDENT_ID}`, (req, res) => {
@@ -703,35 +894,39 @@ app.get(`/suggest-recipes-${STUDENT_ID}`, (req, res) => {
 // Root -> Home
 app.get("/", (req, res) => res.redirect(`/home-${STUDENT_ID}`));
 
-// Home
+// Home (DB-driven)
 app.get(`/home-${STUDENT_ID}`, async (req, res) => {
   const user = getAuthFromCookie(req);
   if (!user) return res.redirect(`/login-${STUDENT_ID}`);
 
   try {
-    const totalUsers = await User.countDocuments();
+    const [ totalUsers, recipeCount, inventoryCount, cuisines, valueAgg ] = await Promise.all([
+      User.countDocuments(),
+      Recipe.countDocuments(),
+      Inventory.countDocuments(),
+      Recipe.distinct("cuisineType"),
+      Inventory.aggregate([{ $group: { _id: null, total: { $sum: "$cost" } } }]),
+    ]);
 
-    const recipeFilter = {};
-    const totalRecipes = await Recipe.countDocuments(recipeFilter);
+    const totalInventoryValue = (valueAgg[0]?.total || 0).toFixed(2);
 
-    const inventoryCount = inventory.length;
-    const totalInventoryValue = sumTotalInventoryValue(inventory);
-
-    res.render("index", {
+    return res.render("index", {
       studentId: STUDENT_ID,
       stats: {
         totalUsers,
-        recipeCount: totalRecipes,
+        recipeCount,
         inventoryCount,
-        cuisineTypes: new Set(recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))).size,
-        totalInventoryValue: totalInventoryValue.toFixed(2),
+        cuisineTypes: cuisines.length,
+        totalInventoryValue,
       },
+      
     });
   } catch (err) {
     console.error("Home stats error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load dashboard." });
+    return res.render("error", { studentId: STUDENT_ID, message: "Failed to load dashboard stats." });
   }
 });
+
 
 app.get(`/routes-${STUDENT_ID}`, (req, res) => {
   const routes = [];
