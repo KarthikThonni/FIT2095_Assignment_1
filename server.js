@@ -12,8 +12,12 @@ import {
   ISO_DATE_REGEX,
 } from "./models/constants.js";
 
-// A2 User model (Mongo)
+// A2 
 import { User } from "./models/User.js";
+import { Recipe } from "./models/Recipe.js";
+import { Inventory } from "./models/Inventory.js";
+
+
 
 /* ---------- Config ---------- */
 const STUDENT_ID = "33905320";
@@ -115,36 +119,29 @@ function nextId(prefix, arr, regex) {
 function isLowStockByUnit(quantity, unit) {
   const q = Number(quantity) || 0;
   switch (unit) {
-    case "pieces":
-      return q < 3;
-    case "kg":
-      return q < 0.5;
-    case "g":
-      return q < 100;
-    case "L":
-      return q < 0.5;
-    case "ml":
-      return q < 100;
-    case "pack":
-      return q < 1;
-    default:
-      return q <= 0;
+    case "pieces": return q < 3;
+    case "dozen":  return q < 1;
+    case "kg":     return q < 0.5;
+    case "g":      return q < 100;
+    case "liters": return q < 0.5;
+    case "ml":     return q < 100;
+    case "cups":   return q < 1;
+    case "tbsp":   return q < 2;
+    case "tsp":    return q < 3;
+    default:       return q <= 0;
   }
 }
+
 
 /* ---------- Validation constants (A1 + reused) ---------- */
 const MEAL_TYPES = new Set(["Breakfast", "Lunch", "Dinner", "Snack"]);
 const DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
-const INV_UNITS = new Set(["pieces", "kg", "g", "ml", "L", "pack"]);
+const INV_UNITS = new Set(["pieces", "kg", "g", "liters", "ml", "cups", "tbsp", "tsp", "dozen"]);
 const INV_CATEGORIES = new Set([
-  "Vegetables",
-  "Fruits",
-  "Grains",
-  "Dairy",
-  "Meat",
-  "Pantry",
+  "Vegetables","Fruits","Meat","Dairy","Grains","Spices",
+  "Beverages","Frozen","Canned","Other"
 ]);
-const INV_LOCATIONS = new Set(["Fridge", "Freezer", "Pantry", "Cupboard"]);
+const INV_LOCATIONS = new Set(["Fridge","Freezer","Pantry","Counter","Cupboard"]);
 
 function bad(res, msg) {
   return res.redirect(`/error-${STUDENT_ID}?msg=${encodeURIComponent(msg)}`);
@@ -192,6 +189,7 @@ function validateRecipeBody(req, res, next) {
   if (!ISO_DATE_REGEX.test(cd))
     return bad(res, "createdDate must be YYYY-MM-DD");
   req.body.createdDate = cd;
+  
 
   next();
 }
@@ -380,12 +378,21 @@ function requireChef(req, res, next) {
 /*                             RECIPES (A1)                             */
 /* =================================================================== */
 
-app.get(`/recipes-${STUDENT_ID}`, requireChef, (req, res) => {
-  res.render("recipes", {
-    studentId: STUDENT_ID,
-    recipes: recipes.map((r) => (r.toJSON ? r.toJSON() : r)),
-  });
+// List recipes (Mongo)
+app.get(`/recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
+  try {
+    const docs = await Recipe.find({}).sort({ createdDate: -1 }).lean();
+
+    res.render("recipes", {
+      studentId: STUDENT_ID,
+      recipes: docs,           
+    });
+  } catch (err) {
+    console.error("Recipes list error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load recipes." });
+  }
 });
+
 
 app.get(`/add-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
   res.render("addRecipe", {
@@ -395,82 +402,106 @@ app.get(`/add-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
   });
 });
 
-app.post(
-  `/api/add-recipe-${STUDENT_ID}`,
-  requireChef,
-  validateRecipeBody,
-  (req, res) => {
-    const body = { ...req.body };
-    const ing = Array.isArray(body.ingredients)
-      ? body.ingredients
-      : toLines(body.ingredients);
-    const inst = Array.isArray(body.instructions)
-      ? body.instructions
-      : toLines(body.instructions);
+// Add recipe (Mongo) — chefs only
+// POST create recipe (Mongo)
+app.post(`/api/add-recipe-${STUDENT_ID}`, requireChef, validateRecipeBody, async (req, res) => {
+  try {
+    const auth = getAuthFromCookie(req);
+    if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
 
-    recipes.push({
-      recipeId: nextId("R", recipes, RECIPE_ID_REGEX),
+    
+    const count = await Recipe.countDocuments();
+    const recipeId = `R-${String(count + 1).padStart(5, "0")}`;
+
+    const body = req.body;
+    const ingredients = Array.isArray(body.ingredients) ? body.ingredients : toLines(body.ingredients);
+    const instructions = Array.isArray(body.instructions) ? body.instructions : toLines(body.instructions);
+
+    await Recipe.create({
+      recipeId,
+      userId: auth.userId,            
       title: body.title.trim(),
       chef: body.chef.trim(),
-      ingredients: ing,
-      instructions: inst,
+      ingredients,
+      instructions,
       mealType: body.mealType,
       cuisineType: body.cuisineType.trim(),
       prepTime: Number(body.prepTime),
       difficulty: body.difficulty,
-      servings: Number(body.servings),
+      servings: Number(body.servings), 
       createdDate: body.createdDate,
     });
 
     res.redirect(`/recipes-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Add recipe error:", err);
+    return res.status(400).render("error", { studentId: STUDENT_ID, message: "Failed to add recipe." });
   }
-);
-
-app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, (req, res) => {
-  const { mealType, cuisineType, difficulty } = req.query;
-  let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
-  if (mealType && mealType !== "All")
-    data = data.filter((r) => r.mealType === mealType);
-  if (cuisineType && cuisineType.trim())
-    data = data.filter((r) =>
-      (r.cuisineType || "").toLowerCase().includes(cuisineType.toLowerCase())
-    );
-  if (difficulty && difficulty !== "All")
-    data = data.filter((r) => r.difficulty === difficulty);
-
-  res.render("filterRecipes", {
-    studentId: STUDENT_ID,
-    recipes: data,
-    selected: {
-      mealType: mealType || "All",
-      cuisineType: cuisineType || "",
-      difficulty: difficulty || "All",
-    },
-  });
 });
 
-app.get(`/search-recipes-${STUDENT_ID}`, requireChef, (req, res) => {
-  const q = String(req.query.q || "").trim().toLowerCase();
-  let data = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
-  if (q) {
-    data = data.filter(
-      (r) =>
-        (r.title || "").toLowerCase().includes(q) ||
-        (r.chef || "").toLowerCase().includes(q) ||
-        (r.cuisineType || "").toLowerCase().includes(q)
-    );
-  }
-  res.render("searchRecipes", {
-    studentId: STUDENT_ID,
-    q: req.query.q || "",
-    results: data,
-  });
-});
 
-// Scale recipe (A1 HD2)
-app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+// FILTER (Mongo)
+app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const allRecipes = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
+    const { mealType, cuisineType, difficulty } = req.query;
+    const q = {};
+
+    if (mealType && mealType !== "All") q.mealType = mealType;
+    if (difficulty && difficulty !== "All") q.difficulty = difficulty;
+    if (cuisineType && cuisineType.trim()) {
+      q.cuisineType = { $regex: cuisineType.trim(), $options: "i" };
+    }
+
+    const docs = await Recipe.find(q).sort({ createdDate: -1 }).lean();
+
+    res.render("filterRecipes", {
+      studentId: STUDENT_ID,
+      recipes: docs,
+      selected: {
+        mealType: mealType || "All",
+        cuisineType: cuisineType || "",
+        difficulty: difficulty || "All",
+      },
+    });
+  } catch (err) {
+    console.error("Filter recipes error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to filter recipes." });
+  }
+});
+
+
+// SEARCH (Mongo)
+app.get(`/search-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
+  try {
+    const qText = String(req.query.q || "").trim();
+    let results = [];
+
+    if (qText) {
+      const rx = new RegExp(qText, "i");
+      results = await Recipe.find({
+        $or: [{ title: rx }, { chef: rx }, { cuisineType: rx }],
+      })
+        .sort({ createdDate: -1 })
+        .lean();
+    } else {
+      results = await Recipe.find({}).sort({ createdDate: -1 }).lean();
+    }
+
+    res.render("searchRecipes", {
+      studentId: STUDENT_ID,
+      q: qText,
+      results,
+    });
+  } catch (err) {
+    console.error("Search recipes error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to search recipes." });
+  }
+});
+
+// SCALE (Mongo)
+app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
+  try {
+    const allRecipes = await Recipe.find({}).sort({ title: 1 }).lean();
 
     if (!allRecipes.length) {
       return res.render("scaleRecipe", {
@@ -485,7 +516,7 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
 
     const { recipeId } = req.query;
     const selected =
-      allRecipes.find((r) => r.recipeId === recipeId) || allRecipes[0];
+      (recipeId ? await Recipe.findOne({ recipeId }).lean() : null) || allRecipes[0];
 
     const rawNew = req.query.newServings;
     const newServings =
@@ -494,6 +525,8 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
         : String((Number(selected.servings) || 1) * 2);
 
     const factor = Number(newServings) / (Number(selected.servings) || 1);
+
+    // same simple parser you had: scales a leading number
     const scaledIngredients = (selected.ingredients || []).map((line) => {
       const m = String(line).match(/^(\d+(?:\.\d+)?)(.*)$/);
       if (!m) return line;
@@ -512,67 +545,85 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
   } catch (err) {
     console.error("Scale route error:", err);
     return res.status(500).render("error", {
-      message: err.message || "Scale page failed.",
+      studentId: STUDENT_ID,
+      message: "Failed to load scaling page.",
     });
   }
 });
 
+
 /* ----- Delete recipe (confirm page + POST) ----- */
-app.get(`/delete-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
-  const all = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
-  const selected = all.find((r) => r.recipeId === req.query.recipeId) || null;
-  const msg = req.query.msg || "";
-  res.render("deleteRecipe", { studentId: STUDENT_ID, recipes: all, selected, msg });
+app.get(`/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
+  try {
+    const all = await Recipe.find({}).sort({ createdDate: -1 }).lean();
+    const selected = req.query.recipeId ? await Recipe.findOne({ recipeId: req.query.recipeId }).lean() : null;
+    const msg = req.query.msg || "";
+    res.render("deleteRecipe", { studentId: STUDENT_ID, recipes: all, selected, msg });
+  } catch (err) {
+    console.error("Delete page error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load delete page." });
+  }
 });
 
-app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
+// Delete recipe (Mongo)
+app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   const { recipeId, confirm } = req.body || {};
   if (!recipeId || !RECIPE_ID_REGEX.test(recipeId)) {
     return bad(res, "Invalid recipeId.");
   }
   if (!confirm) {
-    return res.redirect(
-      `/delete-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(
-        recipeId
-      )}&msg=${encodeURIComponent("Please tick the confirmation box.")}`
-    );
+    return res.redirect(`/delete-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(recipeId)}&msg=${encodeURIComponent("Please tick the confirmation box.")}`);
   }
-  const idx = recipes.findIndex(
-    (r) => (r.toJSON ? r.toJSON().recipeId : r.recipeId) === recipeId
-  );
-  if (idx === -1) {
-    return bad(res, "Recipe ID not found.");
+  try {
+    const result = await Recipe.deleteOne({ recipeId });
+    if (result.deletedCount === 0) {
+      return bad(res, "Recipe ID not found.");
+    }
+    return res.redirect(`/recipes-${STUDENT_ID}`);
+  } catch (err) {
+    console.error("Delete recipe error:", err);
+    return bad(res, "Failed to delete recipe.");
   }
-  recipes.splice(idx, 1);
-  return res.redirect(`/recipes-${STUDENT_ID}`);
 });
 
 /* =================================================================== */
 /*                           INVENTORY (A1)                             */
 /* =================================================================== */
 
-app.get(`/inventory-${STUDENT_ID}`, (req, res) => {
-  const items = inventory.map((i) => {
-    const plain = i.toJSON ? i.toJSON() : i;
-    const dte = daysUntil(plain.expirationDate);
-    const low = isLowStockByUnit(plain.quantity, plain.unit);
-    return {
-      ...plain,
-      daysToExpire: dte,
-      isExpiringSoon: dte <= 3,
-      isExpired: dte < 0,
-      isLowStock: low,
-    };
-  });
-  const totalValue = sumTotalInventoryValue(items);
-  const lowStockCount = items.filter((x) => x.isLowStock).length;
+app.get(`/inventory-${STUDENT_ID}`, async (req, res) => {
+  try {
+    // read all, newest first
+    const docs = await Inventory.find({}).sort({ createdAt: -1 }).lean();
 
-  res.render("inventory", {
-    studentId: STUDENT_ID,
-    items,
-    totalValue: totalValue.toFixed(2),
-    lowStockCount,
-  });
+    const items = docs.map(x => {
+      const dte = daysUntil(x.expirationDate);
+      return {
+        ...x,
+        daysToExpire: dte,
+        isExpiringSoon: dte <= 3,
+        isExpired: dte < 0,
+        isLowStock: isLowStockByUnit(x.quantity, x.unit),
+      };
+    });
+
+    const agg = await Inventory.aggregate([
+      { $project: { value: { $multiply: ["$quantity", "$cost"] } } },
+      { $group: { _id: null, total: { $sum: "$value" } } }
+    ]);
+    const totalValue = (agg[0]?.total || 0).toFixed(2);
+
+    const lowStockCount = items.filter(x => x.isLowStock).length;
+
+    res.render("inventory", {
+      studentId: STUDENT_ID,
+      items,
+      totalValue,
+      lowStockCount,
+    });
+  } catch (err) {
+    console.error("Inventory list error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load inventory." });
+  }
 });
 
 app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
@@ -699,25 +750,29 @@ app.get(`/home-${STUDENT_ID}`, async (req, res) => {
   const user = getAuthFromCookie(req);
   if (!user) return res.redirect(`/login-${STUDENT_ID}`);
 
-  const cuisineSet = new Set(
-    recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))
-  );
-  const totalValue = sumTotalInventoryValue(inventory);
+  try {
+    const totalUsers = await User.countDocuments();
 
-  let totalUsers = 0;
-  try { totalUsers = await User.countDocuments(); } catch {}
+    const recipeFilter = {};
+    const totalRecipes = await Recipe.countDocuments(recipeFilter);
 
-  res.render("index", {
-    studentId: STUDENT_ID,
-    stats: {
-      totalUsers,
-      recipeCount: recipes.length,           
-      inventoryCount: inventory.length,      
-      cuisineTypes: cuisineSet.size,
-      totalInventoryValue: totalValue.toFixed(2),
-    },
-    
-  });
+    const inventoryCount = inventory.length;
+    const totalInventoryValue = sumTotalInventoryValue(inventory);
+
+    res.render("index", {
+      studentId: STUDENT_ID,
+      stats: {
+        totalUsers,
+        recipeCount: totalRecipes,
+        inventoryCount,
+        cuisineTypes: new Set(recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))).size,
+        totalInventoryValue: totalInventoryValue.toFixed(2),
+      },
+    });
+  } catch (err) {
+    console.error("Home stats error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load dashboard." });
+  }
 });
 
 app.get(`/routes-${STUDENT_ID}`, (req, res) => {
