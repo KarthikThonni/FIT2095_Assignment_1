@@ -1,87 +1,109 @@
-<!DOCTYPE html>
 <%- include("partials/header", { title: "Home", studentId }) %>
 
-  <div class="container my-5">
-    <h1 class="mb-4">👋 Welcome to Recipe Hub</h1>
-    <p class="lead">
-      Manage your <strong>recipes</strong> and <strong>inventory</strong> easily.
-      Your Student ID: <code><%= studentId %></code>
-    </p>
+  <div class="mb-3">
+    <h1 class="h3 mb-1">Welcome back, <%= (user && user.fullname) || "Guest" %>!</h1>
+    <% if (user) { %>
+      <div class="text-muted small">
+        <div>User ID: <code><%= user.userId || "N/A" %></code></div>
+        <div>Email: <%= user.email %></div>
+        <div>Role: <span class="badge bg-secondary"><%= user.role %></span></div>
+      </div>
+    <% } %>
+  </div>
 
-    <div class="row g-4 mt-4">
-      <!-- Recipes -->
-      <div class="col-md-6">
-        <div class="card shadow-sm h-100">
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <% if (typeof stats.totalUsers !== 'undefined') { %>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
           <div class="card-body">
-            <h4 class="card-title">📘 Recipes</h4>
-            <p class="card-text">Create, browse, filter, search and scale recipes.</p>
-            <div class="d-grid gap-2">
-              <a href="/recipes-<%= studentId %>" class="btn btn-outline-primary">View Recipes</a>
-              <a href="/add-recipe-<%= studentId %>" class="btn btn-outline-success">Add Recipe</a>
-              <a href="/filter-recipes-<%= studentId %>" class="btn btn-outline-dark">Filter Recipes</a>
-              <a href="/search-recipes-<%= studentId %>" class="btn btn-outline-dark">Search Recipes</a>
-              <a href="/scale-recipe-<%= studentId %>" class="btn btn-outline-secondary">Scale Recipe</a>
-            </div>
+            <div class="text-muted small">Total Users</div>
+            <div class="h4 m-0"><%= stats.totalUsers %></div>
+            <div class="text-muted small">Registered users in the system</div>
           </div>
         </div>
       </div>
+    <% } %>
 
-      <!-- Inventory -->
-      <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-          <div class="card-body">
-            <h4 class="card-title">🛒 Inventory</h4>
-            <p class="card-text">Track pantry items, costs, and freshness.</p>
-            <div class="d-grid gap-2">
-              <a href="/inventory-<%= studentId %>" class="btn btn-outline-primary">View Inventory</a>
-              <a href="/add-inventory-<%= studentId %>" class="btn btn-outline-success">Add Inventory Item</a>
-              <a href="/check-ingredients-<%= studentId %>" class="btn btn-outline-warning">Check Pantry</a>
-              <a href="/suggest-recipes-<%= studentId %>" class="btn btn-outline-info">Suggested Recipes</a>
-            </div>
-          </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Total Recipes</div>
+          <div class="h4 m-0"><%= stats.recipeCount %></div>
+          <div class="text-muted small">Recipes in the database</div>
         </div>
       </div>
     </div>
 
-    <!-- Stats Preview -->
-    <div class="alert alert-info mt-5">
-      <h5 class="mb-1">📊 Quick Stats</h5>
-      <ul class="mb-0">
-        <li>Total Recipes: <%= stats.recipeCount %></li>
-        <li>Total Inventory Items: <%= stats.inventoryCount %></li>
-        <li>Unique Cuisine Types: <%= stats.cuisineTypes %></li>
-        <li>Total Inventory Value: $<%= stats.totalInventoryValue %></li>
-      </ul>
-    </div>
-
-    <!-- Recent Activity -->
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <h5>🆕 Recent Recipes</h5>
-        <% if (recentRecipes.length === 0) { %>
-          <p class="text-muted">No recipes yet.</p>
-        <% } else { %>
-          <ul>
-            <% recentRecipes.forEach(r => { %>
-              <li><%= r.title %> (<%= r.createdDate %>)</li>
-            <% }) %>
-          </ul>
-        <% } %>
-      </div>
-      <div class="col-md-6">
-        <h5>⏳ Expiring Soon</h5>
-        <% if (expiringItems.length === 0) { %>
-          <p class="text-muted">No items expiring soon.</p>
-        <% } else { %>
-          <ul>
-            <% expiringItems.forEach(i => { %>
-              <li><%= i.ingredientName %> (in <%= i.daysToExpire %> days)</li>
-            <% }) %>
-          </ul>
-        <% } %>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Inventory Items</div>
+          <div class="h4 m-0"><%= stats.inventoryCount %></div>
+          <div class="text-muted small">Items in inventory</div>
+        </div>
       </div>
     </div>
   </div>
 
-<%- include("partials/footer") %>
+  <!-- Quick actions (role-specific) -->
+  <h5 class="mb-2">Quick Actions</h5>
+  <div class="row g-3">
+    <% if (user && user.role === 'chef') { %>
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="fw-bold mb-1">Recipe Management</div>
+            <p class="text-muted small">Create, view, and manage your recipes.</p>
+            <div class="d-flex gap-2">
+              <a class="btn btn-primary" href="/add-recipe-<%= studentId %>">Add Recipe</a>
+              <a class="btn btn-outline-primary" href="/recipes-<%= studentId %>">View Recipes</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% } %>
 
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="fw-bold mb-1">Inventory Management</div>
+          <p class="text-muted small">Track and manage your inventory.</p>
+          <div class="d-flex gap-2">
+            <a class="btn btn-success" href="/add-inventory-<%= studentId %>">Add Item</a>
+            <a class="btn btn-outline-secondary" href="/inventory-<%= studentId %>">View Inventory</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent & expiring (same as A1) -->
+  <div class="row mt-4">
+    <div class="col-md-6">
+      <h6>Recent Recipes</h6>
+      <% if (!recentRecipes || recentRecipes.length === 0) { %>
+        <p class="text-muted small m-0">No recipes yet.</p>
+      <% } else { %>
+        <ul class="small m-0">
+          <% recentRecipes.forEach(r => { %>
+            <li><%= r.title %> (<%= r.createdDate %>)</li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+    <div class="col-md-6">
+      <h6>Expiring Soon</h6>
+      <% if (!expiringItems || expiringItems.length === 0) { %>
+        <p class="text-muted small m-0">No items expiring soon.</p>
+      <% } else { %>
+        <ul class="small m-0">
+          <% expiringItems.forEach(i => { %>
+            <li><%= i.ingredientName %> (in <%= i.daysToExpire %> days)</li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+  </div>
+
+<%- include("partials/footer") %>

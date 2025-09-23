@@ -694,13 +694,13 @@ app.get(`/suggest-recipes-${STUDENT_ID}`, (req, res) => {
 // Root -> Home
 app.get("/", (req, res) => res.redirect(`/home-${STUDENT_ID}`));
 
-app.get(`/home-${STUDENT_ID}`, (req, res) => {
+// Home 
+app.get(`/home-${STUDENT_ID}`, async (req, res) => {
   const user = getAuthFromCookie(req);
   if (!user) return res.redirect(`/login-${STUDENT_ID}`);
 
-  const cuisineSet = new Set(
-    recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))
-  );
+  
+  const cuisineSet = new Set(recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType)));
   const totalValue = sumTotalInventoryValue(inventory);
 
   const recentRecipes = recipes
@@ -717,9 +717,14 @@ app.get(`/home-${STUDENT_ID}`, (req, res) => {
     .filter(x => x.daysToExpire <= 3)
     .slice(0, 3);
 
+
+  let totalUsers = 0;
+  try { totalUsers = await User.countDocuments(); } catch {}
+
   res.render("index", {
     studentId: STUDENT_ID,
     stats: {
+      totalUsers,
       recipeCount: recipes.length,
       inventoryCount: inventory.length,
       cuisineTypes: cuisineSet.size,
@@ -729,6 +734,7 @@ app.get(`/home-${STUDENT_ID}`, (req, res) => {
     expiringItems,
   });
 });
+
 
 app.get(`/routes-${STUDENT_ID}`, (req, res) => {
   const routes = [];
