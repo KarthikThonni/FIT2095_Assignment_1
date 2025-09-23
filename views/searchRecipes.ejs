@@ -2,7 +2,7 @@
 <%- include("partials/header", { title: "Search Recipes", studentId }) %>
 
   <div class="container my-4">
-    <h1 class="mb-3">🔍 Search Recipes</h1>
+    <h1 class="mb-3"> Search Recipes</h1>
     <form class="d-flex gap-2 mb-4" method="GET" action="/search-recipes-<%= studentId %>">
       <input class="form-control" type="text" name="q" placeholder="Title, chef, cuisine..." value="<%= q || '' %>">
       <button class="btn btn-primary">Search</button>

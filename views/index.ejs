@@ -46,7 +46,7 @@
     </div>
   </div>
 
-  <!-- Quick actions (role-specific) -->
+  <!-- Quick actions -->
   <h5 class="mb-2">Quick Actions</h5>
   <div class="row g-3">
     <% if (user && user.role === 'chef') { %>
@@ -75,34 +75,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Recent & expiring (same as A1) -->
-  <div class="row mt-4">
-    <div class="col-md-6">
-      <h6>Recent Recipes</h6>
-      <% if (!recentRecipes || recentRecipes.length === 0) { %>
-        <p class="text-muted small m-0">No recipes yet.</p>
-      <% } else { %>
-        <ul class="small m-0">
-          <% recentRecipes.forEach(r => { %>
-            <li><%= r.title %> (<%= r.createdDate %>)</li>
-          <% }) %>
-        </ul>
-      <% } %>
-    </div>
-    <div class="col-md-6">
-      <h6>Expiring Soon</h6>
-      <% if (!expiringItems || expiringItems.length === 0) { %>
-        <p class="text-muted small m-0">No items expiring soon.</p>
-      <% } else { %>
-        <ul class="small m-0">
-          <% expiringItems.forEach(i => { %>
-            <li><%= i.ingredientName %> (in <%= i.daysToExpire %> days)</li>
-          <% }) %>
-        </ul>
-      <% } %>
     </div>
   </div>
 

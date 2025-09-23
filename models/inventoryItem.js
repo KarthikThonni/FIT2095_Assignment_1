@@ -7,19 +7,19 @@ const inventorySchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      match: /^I-\d{5}$/, // I-XXXXX format
+      match: /^I-\d{5}$/, 
     },
     userId: {
       type: String,
       required: true,
-      match: /^U-\d{5}$/, // must link to a valid User
+      match: /^U-\d{5}$/, 
     },
     ingredientName: {
       type: String,
       required: true,
       minlength: 2,
       maxlength: 50,
-      match: /^[A-Za-z\s-]+$/, // only letters, spaces, hyphens
+      match: /^[A-Za-z\s-]+$/, 
     },
     quantity: {
       type: Number,

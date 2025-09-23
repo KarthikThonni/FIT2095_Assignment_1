@@ -2,7 +2,7 @@
 <%- include("partials/header", { title: "Pantry Check", studentId }) %>
 
   <div class="container my-4">
-    <h1 class="mb-3">🧪 Check Pantry for a Recipe</h1>
+    <h1 class="mb-3">Check Pantry for a Recipe</h1>
 
     <form class="row g-3 mb-4" method="GET" action="/check-ingredients-<%= studentId %>">
       <div class="col-md-6">
@@ -25,7 +25,7 @@
       <div class="row g-3">
         <div class="col-md-6">
           <div class="card border-0 shadow-sm">
-            <div class="card-header bg-success text-white">✅ You have</div>
+            <div class="card-header bg-success text-white">You have</div>
             <ul class="list-group list-group-flush">
               <% if (result.have.length === 0) { %>
                 <li class="list-group-item text-muted">None</li>
@@ -45,10 +45,10 @@
         </div>
         <div class="col-md-6">
           <div class="card border-0 shadow-sm">
-            <div class="card-header bg-danger text-white">❌ Missing</div>
+            <div class="card-header bg-danger text-white">Missing</div>
             <ul class="list-group list-group-flush">
               <% if (result.missing.length === 0) { %>
-                <li class="list-group-item text-muted">None 🎉</li>
+                <li class="list-group-item text-muted">None</li>
               <% } %>
               <% result.missing.forEach(m => { %>
                 <li class="list-group-item"><%= m.line %></li>

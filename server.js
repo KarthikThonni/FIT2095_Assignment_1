@@ -32,7 +32,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => console.log(`✅ MongoDB connected: ${DB_NAME}`))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 /* ---------- Views / Static / Body parsers ---------- */
 app.set("view engine", "ejs");
@@ -694,29 +694,15 @@ app.get(`/suggest-recipes-${STUDENT_ID}`, (req, res) => {
 // Root -> Home
 app.get("/", (req, res) => res.redirect(`/home-${STUDENT_ID}`));
 
-// Home 
+// Home
 app.get(`/home-${STUDENT_ID}`, async (req, res) => {
   const user = getAuthFromCookie(req);
   if (!user) return res.redirect(`/login-${STUDENT_ID}`);
 
-  
-  const cuisineSet = new Set(recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType)));
+  const cuisineSet = new Set(
+    recipes.map(r => (r.toJSON ? r.toJSON().cuisineType : r.cuisineType))
+  );
   const totalValue = sumTotalInventoryValue(inventory);
-
-  const recentRecipes = recipes
-    .map(r => (r.toJSON ? r.toJSON() : r))
-    .slice(-3)
-    .reverse();
-
-  const expiringItems = inventory
-    .map(i => {
-      const x = i.toJSON ? i.toJSON() : i;
-      return { ...x, daysToExpire: daysUntil(x.expirationDate) };
-    })
-    .sort((a, b) => a.daysToExpire - b.daysToExpire)
-    .filter(x => x.daysToExpire <= 3)
-    .slice(0, 3);
-
 
   let totalUsers = 0;
   try { totalUsers = await User.countDocuments(); } catch {}
@@ -725,16 +711,14 @@ app.get(`/home-${STUDENT_ID}`, async (req, res) => {
     studentId: STUDENT_ID,
     stats: {
       totalUsers,
-      recipeCount: recipes.length,
-      inventoryCount: inventory.length,
+      recipeCount: recipes.length,           
+      inventoryCount: inventory.length,      
       cuisineTypes: cuisineSet.size,
       totalInventoryValue: totalValue.toFixed(2),
     },
-    recentRecipes,
-    expiringItems,
+    
   });
 });
-
 
 app.get(`/routes-${STUDENT_ID}`, (req, res) => {
   const routes = [];
@@ -754,7 +738,7 @@ app.get(`/error-${STUDENT_ID}`, (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("💥 Server error:", err);
+  console.error(" Server error:", err);
   res
     .status(500)
     .render("error", { studentId: STUDENT_ID, message: err.message || "Server error" });

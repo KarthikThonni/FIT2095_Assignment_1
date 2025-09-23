@@ -3,11 +3,11 @@
 
   <div class="container my-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="m-0">📘 All Recipes</h1>
+      <h1 class="m-0">All Recipes</h1>
       <div class="d-flex gap-2">
         <a href="/add-recipe-<%= studentId %>" class="btn btn-success">＋ Add Recipe</a>
-        <a href="/filter-recipes-<%= studentId %>" class="btn btn-outline-dark">🔎 Filter</a>
-        <a href="/search-recipes-<%= studentId %>" class="btn btn-outline-dark">🔍 Search</a>
+        <a href="/filter-recipes-<%= studentId %>" class="btn btn-outline-dark"> Filter</a>
+        <a href="/search-recipes-<%= studentId %>" class="btn btn-outline-dark"> Search</a>
       </div>
     </div>
 
@@ -46,7 +46,7 @@
                   class="btn btn-sm btn-outline-primary"
                   href="/scale-recipe-<%= studentId %>?recipeId=<%= encodeURIComponent(r.recipeId) %>"
                   title="Scale servings">
-                  ⚖️ Scale
+                     Scale
                 </a>
 
                 
@@ -54,7 +54,7 @@
                   class="btn btn-sm btn-outline-danger"
                   href="/delete-recipe-<%= studentId %>?recipeId=<%= encodeURIComponent(r.recipeId) %>"
                   title="Delete with confirmation">
-                  🗑 Delete
+                      Delete
                 </a>
               </td>
             </tr>
