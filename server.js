@@ -31,8 +31,8 @@ mongoose
 /* Views / static / body */
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
-app.use(express.urlencoded({ extended: true })); // form parser
-app.use(express.json()); // json parser
+app.use(express.urlencoded({ extended: true })); 
+app.use(express.json()); 
 app.use("/public", express.static(path.join(__dirname, "public")));
 app.use(
   "/bootstrap",
@@ -56,7 +56,7 @@ function getAuthFromCookie(req) {
   try {
     const cookies = parseCookies(req);
     if (!cookies[AUTH_COOKIE]) return null;
-    return JSON.parse(cookies[AUTH_COOKIE]); // { userId, email, fullname, role }
+    return JSON.parse(cookies[AUTH_COOKIE]); 
   } catch {
     return null;
   }
@@ -324,7 +324,7 @@ function inventoryMatchScore(ingredientLine, invItemName) {
 const PASSWORD_COMPLEXITY =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?\d[\d\s-]{6,}$/; // simple phone
+const PHONE_REGEX = /^\+?\d[\d\s-]{6,}$/; 
 const ROLES = new Set(["admin", "chef", "manager"]);
 
 app.get(`/register-${STUDENT_ID}`, (req, res) => {
@@ -508,9 +508,9 @@ app.post(
 
       await Recipe.create({
         recipeId,
-        userId: auth.userId, // owner id
+        userId: auth.userId, 
         title: body.title.trim(),
-        chef: auth.fullname, // chef name
+        chef: auth.fullname, 
         ingredients,
         instructions,
         mealType: body.mealType,
@@ -811,7 +811,7 @@ app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
 function injectUserIdFromCookie(req, res, next) {
   const auth = getAuthFromCookie(req);
   if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
-  req.body.userId = auth.userId; // force current user
+  req.body.userId = auth.userId; 
   next();
 }
 
@@ -1047,7 +1047,7 @@ app.get(`/suggest-recipes-${STUDENT_ID}`, async (req, res) => {
 
 /* Debug routes */
 app.get("/", (req, res) => {
-  res.redirect(`/home-${STUDENT_ID}`); // root redirect
+  res.redirect(`/home-${STUDENT_ID}`); 
 });
 
 /* Home (DB-driven) */
