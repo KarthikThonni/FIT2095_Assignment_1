@@ -4,22 +4,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 
-// A1 in-memory data & helpers
-import { recipes, inventory } from "./data/seed.js";
-import {
-  RECIPE_ID_REGEX,
-  INVENTORY_ID_REGEX,
-  ISO_DATE_REGEX,
-} from "./models/constants.js";
-
-// A2 
+// A2 models (Mongo)
 import { User } from "./models/User.js";
 import { Recipe } from "./models/Recipe.js";
 import { Inventory } from "./models/Inventory.js";
 
-
-
-/* ---------- Config ---------- */
+/* Config */
 const STUDENT_ID = "33905320";
 const PORT = process.env.PORT || 8080;
 const DB_NAME = `cloudKitchenPro_${STUDENT_ID}`;
@@ -29,27 +19,27 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-/* ---------- MongoDB (Users only for now) ---------- */
+/* MongoDB connect */
 mongoose
   .connect(`mongodb://127.0.0.1:27017/${DB_NAME}`, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log(`✅ MongoDB connected: ${DB_NAME}`))
+  .then(() => console.log(`MongoDB connected: ${DB_NAME}`))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-/* ---------- Views / Static / Body parsers ---------- */
+/* Views / static / body */
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // form parser
+app.use(express.json()); // json parser
 app.use("/public", express.static(path.join(__dirname, "public")));
 app.use(
   "/bootstrap",
   express.static(path.join(__dirname, "node_modules/bootstrap/dist"))
 );
 
-/* ---------- Simple cookie auth (no extra packages) ---------- */
+/* Cookie auth */
 const AUTH_COOKIE = "auth";
 
 function parseCookies(req) {
@@ -61,6 +51,7 @@ function parseCookies(req) {
     return acc;
   }, {});
 }
+
 function getAuthFromCookie(req) {
   try {
     const cookies = parseCookies(req);
@@ -70,36 +61,41 @@ function getAuthFromCookie(req) {
     return null;
   }
 }
+
 function setAuthCookie(res, userObj) {
   const value = encodeURIComponent(JSON.stringify(userObj));
   res.setHeader("Set-Cookie", `${AUTH_COOKIE}=${value}; Path=/; HttpOnly`);
 }
+
 function clearAuthCookie(res) {
   res.setHeader("Set-Cookie", `${AUTH_COOKIE}=; Path=/; Max-Age=0; HttpOnly`);
 }
 
-/* ---------- Make user available in all views ---------- */
+/* Locals for views */
 app.use((req, res, next) => {
   res.locals.user = getAuthFromCookie(req);
   res.locals.studentId = STUDENT_ID;
   next();
 });
 
-/* ---------- Helpers (from A1) ---------- */
+/* Helpers */
 function toLines(text) {
   return String(text || "")
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean);
 }
+
 function daysUntil(dateStr) {
   const today = new Date();
   const exp = new Date(dateStr);
   return Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
 }
+
 function sumTotalInventoryValue(items) {
   return items.reduce((acc, it) => acc + (Number(it.cost) || 0), 0);
 }
+
 function nextId(prefix, arr, regex) {
   let max = 0;
   for (const x of arr) {
@@ -116,62 +112,122 @@ function nextId(prefix, arr, regex) {
   }
   return `${prefix}-${String(max + 1).padStart(5, "0")}`;
 }
+
 function isLowStockByUnit(quantity, unit) {
   const q = Number(quantity) || 0;
   switch (unit) {
-    case "pieces": return q < 3;
-    case "dozen":  return q < 1;
-    case "kg":     return q < 0.5;
-    case "g":      return q < 100;
-    case "liters": return q < 0.5;
-    case "ml":     return q < 100;
-    case "cups":   return q < 1;
-    case "tbsp":   return q < 2;
-    case "tsp":    return q < 3;
-    default:       return q <= 0;
+    case "pieces":
+      return q < 3;
+    case "dozen":
+      return q < 1;
+    case "kg":
+      return q < 0.5;
+    case "g":
+      return q < 100;
+    case "liters":
+      return q < 0.5;
+    case "ml":
+      return q < 100;
+    case "cups":
+      return q < 1;
+    case "tbsp":
+      return q < 2;
+    case "tsp":
+      return q < 3;
+    default:
+      return q <= 0;
   }
 }
 
-
-/* ---------- Validation constants (A1 + reused) ---------- */
+/* Validation constants */
 const MEAL_TYPES = new Set(["Breakfast", "Lunch", "Dinner", "Snack"]);
 const DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
-const INV_UNITS = new Set(["pieces", "kg", "g", "liters", "ml", "cups", "tbsp", "tsp", "dozen"]);
-const INV_CATEGORIES = new Set([
-  "Vegetables","Fruits","Meat","Dairy","Grains","Spices",
-  "Beverages","Frozen","Canned","Other"
+const INV_UNITS = new Set([
+  "pieces",
+  "kg",
+  "g",
+  "liters",
+  "ml",
+  "cups",
+  "tbsp",
+  "tsp",
+  "dozen",
 ]);
-const INV_LOCATIONS = new Set(["Fridge","Freezer","Pantry","Counter","Cupboard"]);
+const INV_CATEGORIES = new Set([
+  "Vegetables",
+  "Fruits",
+  "Meat",
+  "Dairy",
+  "Grains",
+  "Spices",
+  "Beverages",
+  "Frozen",
+  "Canned",
+  "Other",
+]);
+const INV_LOCATIONS = new Set([
+  "Fridge",
+  "Freezer",
+  "Pantry",
+  "Counter",
+  "Cupboard",
+]);
 
 function bad(res, msg) {
   return res.redirect(`/error-${STUDENT_ID}?msg=${encodeURIComponent(msg)}`);
 }
 
+// ID/date regex 
+const RECIPE_ID_REGEX = /^R-(\d{5})$/;      
+const INVENTORY_ID_REGEX = /^I-(\d{5})$/;   
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/; 
+
+
+/* Recipe body validate */
 function validateRecipeBody(req, res, next) {
   const {
-    title, chef, mealType, cuisineType, prepTime,
-    difficulty, servings, ingredients, instructions, createdDate
+    title,
+    chef,
+    mealType,
+    cuisineType,
+    prepTime,
+    difficulty,
+    servings,
+    ingredients,
+    instructions,
+    createdDate,
   } = req.body;
 
   if (!title?.trim()) return bad(res, "title is required");
   if (!chef?.trim()) return bad(res, "chef is required");
   if (!mealType || !MEAL_TYPES.has(mealType)) return bad(res, "invalid mealType");
 
-
-  if (!cuisineType || !CUISINES.includes(cuisineType)) return bad(res, "invalid cuisineType");
+  if (!cuisineType || !CUISINES.includes(cuisineType)) {
+    return bad(res, "invalid cuisineType");
+  }
 
   const pt = Number(prepTime);
-  if (!Number.isInteger(pt) || pt < 1 || pt > 480) return bad(res, "prepTime must be an integer 1–480");
+  if (!Number.isInteger(pt) || pt < 1 || pt > 480) {
+    return bad(res, "prepTime must be an integer 1–480");
+  }
 
-  if (!difficulty || !DIFFICULTIES.has(difficulty)) return bad(res, "invalid difficulty");
+  if (!difficulty || !DIFFICULTIES.has(difficulty)) {
+    return bad(res, "invalid difficulty");
+  }
 
   const sv = Number(servings);
-  if (!Number.isInteger(sv) || sv < 1 || sv > 20) return bad(res, "servings must be an integer 1–20");
+  if (!Number.isInteger(sv) || sv < 1 || sv > 20) {
+    return bad(res, "servings must be an integer 1–20");
+  }
 
-  const ingOk = Array.isArray(ingredients) ? ingredients.length > 0 : toLines(ingredients).length > 0;
+  const ingOk = Array.isArray(ingredients)
+    ? ingredients.length > 0
+    : toLines(ingredients).length > 0;
   if (!ingOk) return bad(res, "ingredients required");
 
-  const instOk = Array.isArray(instructions) ? instructions.length > 0 : toLines(instructions).length > 0;
+  const instOk = Array.isArray(instructions)
+    ? instructions.length > 0
+    : toLines(instructions).length > 0;
   if (!instOk) return bad(res, "instructions required");
 
   const cd = createdDate || new Date().toISOString().split("T")[0];
@@ -181,7 +237,7 @@ function validateRecipeBody(req, res, next) {
   next();
 }
 
-
+/* Inventory body validate */
 function validateInventoryBody(req, res, next) {
   const {
     userId,
@@ -206,12 +262,11 @@ function validateInventoryBody(req, res, next) {
   if (!category || !INV_CATEGORIES.has(category)) return bad(res, "invalid category");
   if (!location || !INV_LOCATIONS.has(location)) return bad(res, "invalid location");
 
-  if (!ISO_DATE_REGEX.test(purchaseDate || ""))
-    return bad(res, "bad purchaseDate");
-  if (!ISO_DATE_REGEX.test(expirationDate || ""))
-    return bad(res, "bad expirationDate");
-  if (new Date(expirationDate) < new Date(purchaseDate))
+  if (!ISO_DATE_REGEX.test(purchaseDate || "")) return bad(res, "bad purchaseDate");
+  if (!ISO_DATE_REGEX.test(expirationDate || "")) return bad(res, "bad expirationDate");
+  if (new Date(expirationDate) < new Date(purchaseDate)) {
     return bad(res, "expiration before purchase");
+  }
 
   const c = Number(cost);
   if (!Number.isFinite(c) || c < 0) return bad(res, "cost must be ≥ 0");
@@ -223,7 +278,7 @@ function validateInventoryBody(req, res, next) {
   next();
 }
 
-/* ---------- Pantry match helpers (A1 HD5) ---------- */
+/* Pantry match helpers */
 function normalize(str) {
   return String(str || "")
     .toLowerCase()
@@ -231,6 +286,7 @@ function normalize(str) {
     .replace(/\s+/g, " ")
     .trim();
 }
+
 const STOPWORDS = new Set([
   "g",
   "kg",
@@ -248,11 +304,13 @@ const STOPWORDS = new Set([
   "slice",
   "slices",
 ]);
+
 function ingredientKeywords(line) {
   const words = normalize(line).split(" ");
   const keep = words.filter((w) => w && !STOPWORDS.has(w) && isNaN(Number(w)));
   return keep.slice(-2).join(" ");
 }
+
 function inventoryMatchScore(ingredientLine, invItemName) {
   const a = normalize(ingredientLine);
   const b = normalize(invItemName);
@@ -262,13 +320,11 @@ function inventoryMatchScore(ingredientLine, invItemName) {
   return 0;
 }
 
-/* =================================================================== */
-/*                         AUTH (Register / Login)                      */
-/* =================================================================== */
-
-const PASSWORD_COMPLEXITY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+/* Auth (register / login) */
+const PASSWORD_COMPLEXITY =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?\d[\d\s-]{6,}$/;                    
+const PHONE_REGEX = /^\+?\d[\d\s-]{6,}$/; // simple phone
 const ROLES = new Set(["admin", "chef", "manager"]);
 
 app.get(`/register-${STUDENT_ID}`, (req, res) => {
@@ -280,40 +336,61 @@ app.post(`/api/register-${STUDENT_ID}`, async (req, res) => {
     const { email, password, fullname, role, phone } = req.body;
 
     if (!email || !password || !fullname || !role || !phone) {
-      return res.render("register", { studentId: STUDENT_ID, error: "All fields are required." });
+      return res.render("register", {
+        studentId: STUDENT_ID,
+        error: "All fields are required.",
+      });
     }
 
-        if (!EMAIL_REGEX.test(email)) {
-      return res.render("register", { studentId: STUDENT_ID, error: "Please enter a valid email address." });
+    if (!EMAIL_REGEX.test(email)) {
+      return res.render("register", {
+        studentId: STUDENT_ID,
+        error: "Please enter a valid email address.",
+      });
     }
+
     if (!PASSWORD_COMPLEXITY.test(password)) {
       return res.render("register", {
         studentId: STUDENT_ID,
-        error: "Password must be 8+ chars and include uppercase, lowercase, number, and special character.",
+        error:
+          "Password must be 8+ chars and include uppercase, lowercase, number, and special character.",
       });
     }
+
     if (!ROLES.has(role)) {
-      return res.render("register", { studentId: STUDENT_ID, error: "Role must be admin, chef, or manager." });
-    }
-    if (!PHONE_REGEX.test(phone)) {
-      return res.render("register", { studentId: STUDENT_ID, error: "Please enter a valid phone number." });
+      return res.render("register", {
+        studentId: STUDENT_ID,
+        error: "Role must be admin, chef, or manager.",
+      });
     }
 
-    
+    if (!PHONE_REGEX.test(phone)) {
+      return res.render("register", {
+        studentId: STUDENT_ID,
+        error: "Please enter a valid phone number.",
+      });
+    }
+
     const exists = await User.findOne({ email });
     if (exists) {
-      return res.render("register", { studentId: STUDENT_ID, error: "Email already registered." });
+      return res.render("register", {
+        studentId: STUDENT_ID,
+        error: "Email already registered.",
+      });
     }
 
-    
     const count = await User.countDocuments();
     const userId = `U-${String(count + 1).padStart(5, "0")}`;
 
     await User.create({ userId, email, password, fullname, role, phone });
+
     return res.redirect(`/login-${STUDENT_ID}`);
   } catch (err) {
     console.error("Register error:", err);
-    return res.render("register", { studentId: STUDENT_ID, error: "Registration failed. Try again." });
+    return res.render("register", {
+      studentId: STUDENT_ID,
+      error: "Registration failed. Try again.",
+    });
   }
 });
 
@@ -325,13 +402,14 @@ app.post(`/api/login-${STUDENT_ID}`, async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    
     const user = await User.findOne({ email });
     if (!user || user.password !== password) {
-      return res.render("login", { studentId: STUDENT_ID, error: "Invalid email or password." });
+      return res.render("login", {
+        studentId: STUDENT_ID,
+        error: "Invalid email or password.",
+      });
     }
 
-    
     setAuthCookie(res, {
       userId: user.userId,
       email: user.email,
@@ -342,7 +420,10 @@ app.post(`/api/login-${STUDENT_ID}`, async (req, res) => {
     return res.redirect(`/home-${STUDENT_ID}`);
   } catch (err) {
     console.error("Login error:", err);
-    return res.render("login", { studentId: STUDENT_ID, error: "Login failed. Try again." });
+    return res.render("login", {
+      studentId: STUDENT_ID,
+      error: "Login failed. Try again.",
+    });
   }
 });
 
@@ -350,7 +431,6 @@ app.post(`/logout-${STUDENT_ID}`, (req, res) => {
   clearAuthCookie(res);
   res.redirect(`/login-${STUDENT_ID}`);
 });
-
 
 function requireChef(req, res, next) {
   const u = getAuthFromCookie(req);
@@ -361,38 +441,46 @@ function requireChef(req, res, next) {
   });
 }
 
+/* Recipes (Mongo) */
 
-/* =================================================================== */
-/*                             RECIPES (A2 Mongo)                      */
-/* =================================================================== */
-
-// List all recipes (chefs only)
+// list recipes
 app.get(`/recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
-    const recipes = await Recipe.find().lean(); 
+    const recipes = await Recipe.find().lean();
     res.render("recipes", { studentId: STUDENT_ID, recipes });
   } catch (err) {
     console.error("Error loading recipes:", err);
-    res.render("error", { studentId: STUDENT_ID, message: "Failed to load recipes." });
+    res.render("error", {
+      studentId: STUDENT_ID,
+      message: "Failed to load recipes.",
+    });
   }
 });
 
-/* ---------- Constants ---------- */
+// allowed cuisines
 const CUISINES = [
-  "Italian","Asian","Mexican","American","French","Indian","Mediterranean","Other"
+  "Italian",
+  "Asian",
+  "Mexican",
+  "American",
+  "French",
+  "Indian",
+  "Mediterranean",
+  "Other",
 ];
 
-/* ---------- Add Recipe ---------- */
+// add recipe (GET)
 app.get(`/add-recipe-${STUDENT_ID}`, requireChef, (req, res) => {
   res.render("addRecipe", {
     studentId: STUDENT_ID,
     mealTypes: [...MEAL_TYPES],
     difficulties: [...DIFFICULTIES],
     cuisines: CUISINES,
-    error: null
+    error: null,
   });
 });
 
+// add recipe (POST)
 app.post(
   `/api/add-recipe-${STUDENT_ID}`,
   requireChef,
@@ -420,9 +508,9 @@ app.post(
 
       await Recipe.create({
         recipeId,
-        userId: auth.userId,              
+        userId: auth.userId, // owner id
         title: body.title.trim(),
-        chef: auth.fullname,              
+        chef: auth.fullname, // chef name
         ingredients,
         instructions,
         mealType: body.mealType,
@@ -447,17 +535,19 @@ app.post(
   }
 );
 
-
-// Filter recipes
+// filter recipes
 app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const { mealType, cuisineType, difficulty } = req.query;
     const query = {};
     if (mealType && mealType !== "All") query.mealType = mealType;
-    if (cuisineType && cuisineType.trim()) query.cuisineType = new RegExp(cuisineType, "i");
+    if (cuisineType && cuisineType.trim()) {
+      query.cuisineType = new RegExp(cuisineType, "i");
+    }
     if (difficulty && difficulty !== "All") query.difficulty = difficulty;
 
     const recipes = await Recipe.find(query).lean();
+
     res.render("filterRecipes", {
       studentId: STUDENT_ID,
       recipes,
@@ -473,7 +563,7 @@ app.get(`/filter-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
-// Search recipes
+// search recipes
 app.get(`/search-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -498,10 +588,11 @@ app.get(`/search-recipes-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
-// Scale recipe
+// scale recipe
 app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const allRecipes = await Recipe.find().lean();
+
     if (!allRecipes.length) {
       return res.render("scaleRecipe", {
         studentId: STUDENT_ID,
@@ -524,6 +615,7 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
         : String((Number(selected.servings) || 1) * 2);
 
     const factor = Number(newServings) / (Number(selected.servings) || 1);
+
     const scaledIngredients = (selected.ingredients || []).map((line) => {
       const m = String(line).match(/^(\d+(?:\.\d+)?)(.*)$/);
       if (!m) return line;
@@ -545,11 +637,12 @@ app.get(`/scale-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
-// Delete recipe (confirm page)
+// delete recipe (page)
 app.get(`/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const all = await Recipe.find().lean();
     const selected = all.find((r) => r.recipeId === req.query.recipeId) || null;
+
     res.render("deleteRecipe", {
       studentId: STUDENT_ID,
       recipes: all,
@@ -562,7 +655,7 @@ app.get(`/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
-// Delete recipe (POST)
+// delete recipe (POST)
 app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const { recipeId, confirm } = req.body;
@@ -581,7 +674,7 @@ app.post(`/api/delete-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
-// EDIT RECIPE (GET) — chefs only
+// edit recipe (GET)
 app.get(`/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const { recipeId } = req.query;
@@ -604,15 +697,21 @@ app.get(`/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   }
 });
 
-// EDIT RECIPE (POST) — chefs only
+// edit recipe (POST)
 app.post(`/api/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
   try {
     const { recipeId } = req.body;
-    if (!recipeId || !RECIPE_ID_REGEX.test(recipeId)) return bad(res, "Invalid recipeId.");
+    if (!recipeId || !RECIPE_ID_REGEX.test(recipeId)) {
+      return bad(res, "Invalid recipeId.");
+    }
 
     const body = { ...req.body };
-    const ingredients = Array.isArray(body.ingredients) ? body.ingredients : toLines(body.ingredients);
-    const instructions = Array.isArray(body.instructions) ? body.instructions : toLines(body.instructions);
+    const ingredients = Array.isArray(body.ingredients)
+      ? body.ingredients
+      : toLines(body.ingredients);
+    const instructions = Array.isArray(body.instructions)
+      ? body.instructions
+      : toLines(body.instructions);
 
     if (!MEAL_TYPES.has(body.mealType)) return bad(res, "invalid mealType");
     if (!CUISINES.includes(body.cuisineType)) return bad(res, "invalid cuisineType");
@@ -622,7 +721,9 @@ app.post(`/api/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
     if (!Number.isInteger(pt) || pt < 1 || pt > 480) return bad(res, "prepTime must be 1–480");
     if (!Number.isInteger(sv) || sv < 1 || sv > 20) return bad(res, "servings must be 1–20");
     if (!DIFFICULTIES.has(body.difficulty)) return bad(res, "invalid difficulty");
-    if (!ingredients.length || !instructions.length) return bad(res, "ingredients/instructions required");
+    if (!ingredients.length || !instructions.length) {
+      return bad(res, "ingredients/instructions required");
+    }
 
     const auth = getAuthFromCookie(req);
     const updateDoc = {
@@ -636,31 +737,35 @@ app.post(`/api/edit-recipe-${STUDENT_ID}`, requireChef, async (req, res) => {
       prepTime: pt,
       difficulty: body.difficulty,
       servings: sv,
-      createdDate: body.createdDate, 
+      createdDate: body.createdDate,
     };
 
-    const updated = await Recipe.findOneAndUpdate({ recipeId }, { $set: updateDoc }, { runValidators: true });
-    if (!updated) return bad(res, "Recipe not found.");
+    const updated = await Recipe.findOneAndUpdate(
+      { recipeId },
+      { $set: updateDoc },
+      { runValidators: true }
+    );
 
+    if (!updated) return bad(res, "Recipe not found.");
     res.redirect(`/recipes-${STUDENT_ID}`);
   } catch (err) {
     console.error("Edit recipe (POST) error:", err);
-    res.redirect(`/edit-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(req.body.recipeId)}&msg=${encodeURIComponent("Update failed. Check values.")}`);
+    res.redirect(
+      `/edit-recipe-${STUDENT_ID}?recipeId=${encodeURIComponent(
+        req.body.recipeId
+      )}&msg=${encodeURIComponent("Update failed. Check values.")}`
+    );
   }
 });
 
+/* Inventory (Mongo) */
 
-
-/* =================================================================== */
-/*                           INVENTORY (A1)                             */
-/* =================================================================== */
-
+// list inventory
 app.get(`/inventory-${STUDENT_ID}`, async (req, res) => {
   try {
-    // read all, newest first
     const docs = await Inventory.find({}).sort({ createdAt: -1 }).lean();
 
-    const items = docs.map(x => {
+    const items = docs.map((x) => {
       const dte = daysUntil(x.expirationDate);
       return {
         ...x,
@@ -671,14 +776,13 @@ app.get(`/inventory-${STUDENT_ID}`, async (req, res) => {
       };
     });
 
-    // aggregation: total value = sum(quantity * cost)
     const agg = await Inventory.aggregate([
       { $project: { value: { $multiply: ["$quantity", "$cost"] } } },
-      { $group: { _id: null, total: { $sum: "$value" } } }
+      { $group: { _id: null, total: { $sum: "$value" } } },
     ]);
-    const totalValue = (agg[0]?.total || 0).toFixed(2);
 
-    const lowStockCount = items.filter(x => x.isLowStock).length;
+    const totalValue = (agg[0]?.total || 0).toFixed(2);
+    const lowStockCount = items.filter((x) => x.isLowStock).length;
 
     res.render("inventory", {
       studentId: STUDENT_ID,
@@ -688,10 +792,13 @@ app.get(`/inventory-${STUDENT_ID}`, async (req, res) => {
     });
   } catch (err) {
     console.error("Inventory list error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to load inventory." });
+    res
+      .status(500)
+      .render("error", { studentId: STUDENT_ID, message: "Failed to load inventory." });
   }
 });
 
+// add inventory (GET)
 app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
   res.render("addInventory", {
     studentId: STUDENT_ID,
@@ -701,6 +808,14 @@ app.get(`/add-inventory-${STUDENT_ID}`, (req, res) => {
   });
 });
 
+function injectUserIdFromCookie(req, res, next) {
+  const auth = getAuthFromCookie(req);
+  if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
+  req.body.userId = auth.userId; // force current user
+  next();
+}
+
+// add inventory (POST)
 app.post(
   `/api/add-inventory-${STUDENT_ID}`,
   injectUserIdFromCookie,
@@ -714,7 +829,7 @@ app.post(
 
       await Inventory.create({
         inventoryId,
-        userId: req.body.userId,            
+        userId: req.body.userId,
         ingredientName: b.ingredientName.trim(),
         quantity: Number(b.quantity),
         unit: b.unit,
@@ -729,12 +844,14 @@ app.post(
       res.redirect(`/inventory-${STUDENT_ID}`);
     } catch (err) {
       console.error("Add inventory error:", err);
-      res.status(400).render("error", { studentId: STUDENT_ID, message: "Invalid inventory data." });
+      res
+        .status(400)
+        .render("error", { studentId: STUDENT_ID, message: "Invalid inventory data." });
     }
   }
 );
 
-/* ----- Delete inventory (POST) ----- */
+// delete inventory (POST)
 app.post(`/api/delete-inventory-${STUDENT_ID}`, async (req, res) => {
   try {
     const { inventoryId } = req.body || {};
@@ -746,18 +863,13 @@ app.post(`/api/delete-inventory-${STUDENT_ID}`, async (req, res) => {
     res.redirect(`/inventory-${STUDENT_ID}`);
   } catch (err) {
     console.error("Delete inventory error:", err);
-    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to delete item." });
+    res
+      .status(500)
+      .render("error", { studentId: STUDENT_ID, message: "Failed to delete item." });
   }
 });
 
-function injectUserIdFromCookie(req, res, next) {
-  const auth = getAuthFromCookie(req);
-  if (!auth) return res.redirect(`/login-${STUDENT_ID}`);
-  req.body.userId = auth.userId;
-  next();
-}
-
-// EDIT INVENTORY (GET)
+// edit inventory (GET)
 app.get(`/edit-inventory-${STUDENT_ID}`, async (req, res) => {
   try {
     const { inventoryId } = req.query;
@@ -771,7 +883,19 @@ app.get(`/edit-inventory-${STUDENT_ID}`, async (req, res) => {
       item,
       categories: [...INV_CATEGORIES],
       locations: [...INV_LOCATIONS],
-      units: ["pieces", "kg", "g", "ml", "L", "pack", "liters", "cups", "tbsp", "tsp", "dozen"],
+      units: [
+        "pieces",
+        "kg",
+        "g",
+        "ml",
+        "L",
+        "pack",
+        "liters",
+        "cups",
+        "tbsp",
+        "tsp",
+        "dozen",
+      ],
       error: null,
     });
   } catch (err) {
@@ -780,133 +904,166 @@ app.get(`/edit-inventory-${STUDENT_ID}`, async (req, res) => {
   }
 });
 
-// EDIT INVENTORY (POST)
-app.post(`/api/edit-inventory-${STUDENT_ID}`, injectUserIdFromCookie, validateInventoryBody, async (req, res) => {
-  try {
-    const {
-      inventoryId, ingredientName, quantity, unit, category,
-      purchaseDate, expirationDate, location, cost, createdDate
-    } = req.body;
+// edit inventory (POST)
+app.post(
+  `/api/edit-inventory-${STUDENT_ID}`,
+  injectUserIdFromCookie,
+  validateInventoryBody,
+  async (req, res) => {
+    try {
+      const {
+        inventoryId,
+        ingredientName,
+        quantity,
+        unit,
+        category,
+        purchaseDate,
+        expirationDate,
+        location,
+        cost,
+        createdDate,
+      } = req.body;
 
-    if (!inventoryId || !INVENTORY_ID_REGEX.test(inventoryId)) {
-      return bad(res, "Invalid inventoryId.");
+      if (!inventoryId || !INVENTORY_ID_REGEX.test(inventoryId)) {
+        return bad(res, "Invalid inventoryId.");
+      }
+
+      const userId = getAuthFromCookie(req)?.userId;
+
+      const updated = await Inventory.findOneAndUpdate(
+        { inventoryId },
+        {
+          $set: {
+            userId,
+            ingredientName: ingredientName.trim(),
+            quantity: Number(quantity),
+            unit,
+            category,
+            purchaseDate,
+            expirationDate,
+            location,
+            cost: Number(cost),
+            createdDate,
+          },
+        },
+        { runValidators: true }
+      );
+
+      if (!updated) return bad(res, "Inventory item not found.");
+      res.redirect(`/inventory-${STUDENT_ID}`);
+    } catch (err) {
+      console.error("Edit inventory (POST) error:", err);
+      res.redirect(
+        `/edit-inventory-${STUDENT_ID}?inventoryId=${encodeURIComponent(
+          req.body.inventoryId
+        )}&msg=${encodeURIComponent("Update failed. Check values.")}`
+      );
+    }
+  }
+);
+
+// Pantry check 
+app.get(`/check-ingredients-${STUDENT_ID}`, async (req, res) => {
+  try {
+    const allRecipes = await Recipe.find({}).lean();
+    const selected =
+      allRecipes.find(r => r.recipeId === String(req.query.recipeId || "")) ||
+      allRecipes[0] || null;
+
+    let result = null;
+    if (selected) {
+      const inv = await Inventory.find({}).lean();
+      const have = [];
+      const missing = [];
+
+      (selected.ingredients || []).forEach(line => {
+        let best = { score: 0, item: null };
+        inv.forEach(it => {
+          const score = inventoryMatchScore(line, it.ingredientName);
+          if (score > best.score) best = { score, item: it };
+        });
+        if (best.score >= 0.8 && best.item) {
+          have.push({ line, matchedItem: best.item });
+        } else {
+          missing.push({ line });
+        }
+      });
+
+      const pct = selected.ingredients?.length
+        ? Math.round((have.length / selected.ingredients.length) * 100)
+        : 0;
+
+      result = { have, missing, pct };
     }
 
-    const userId = getAuthFromCookie(req)?.userId;
-
-    const updated = await Inventory.findOneAndUpdate(
-      { inventoryId },
-      {
-        $set: {
-          userId,
-          ingredientName: ingredientName.trim(),
-          quantity: Number(quantity),
-          unit,
-          category,
-          purchaseDate,
-          expirationDate,
-          location,
-          cost: Number(cost),
-          createdDate,
-        },
-      },
-      { runValidators: true }
-    );
-
-    if (!updated) return bad(res, "Inventory item not found.");
-    res.redirect(`/inventory-${STUDENT_ID}`);
-  } catch (err) {
-    console.error("Edit inventory (POST) error:", err);
-    res.redirect(`/edit-inventory-${STUDENT_ID}?inventoryId=${encodeURIComponent(req.body.inventoryId)}&msg=${encodeURIComponent("Update failed. Check values.")}`);
-  }
-});
-
-
-/* ---------- Recipe–Inventory integration (A1 HD5) ---------- */
-app.get(`/check-ingredients-${STUDENT_ID}`, (req, res) => {
-  const recipeId = String(req.query.recipeId || "");
-  const allRecipes = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
-  const selected = allRecipes.find((r) => r.recipeId === recipeId) || allRecipes[0] || null;
-
-  let result = null;
-  if (selected) {
-    const inv = inventory.map((i) => (i.toJSON ? i.toJSON() : i));
-    const have = [];
-    const missing = [];
-    selected.ingredients.forEach((line) => {
-      let best = { score: 0, item: null };
-      inv.forEach((it) => {
-        const score = inventoryMatchScore(line, it.ingredientName);
-        if (score > best.score) best = { score, item: it };
-      });
-      if (best.score >= 0.8 && best.item)
-        have.push({ line, matchedItem: best.item });
-      else missing.push({ line });
+    res.render("checkIngredients", {
+      studentId: STUDENT_ID,
+      allRecipes,
+      selected,
+      result,
     });
-    const pct = selected.ingredients.length
-      ? Math.round((have.length / selected.ingredients.length) * 100)
-      : 0;
-    result = { have, missing, pct };
+  } catch (err) {
+    console.error("Pantry check error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to check pantry." });
   }
-
-  res.render("checkIngredients", {
-    studentId: STUDENT_ID,
-    allRecipes,
-    selected,
-    result,
-  });
 });
 
-app.get(`/suggest-recipes-${STUDENT_ID}`, (req, res) => {
-  const threshold = Math.max(0, Math.min(100, Number(req.query.threshold) || 60));
-  const allRecipes = recipes.map((r) => (r.toJSON ? r.toJSON() : r));
-  const inv = inventory.map((i) => (i.toJSON ? i.toJSON() : i));
+// Suggested recipes 
+app.get(`/suggest-recipes-${STUDENT_ID}`, async (req, res) => {
+  try {
+    const threshold = Math.max(0, Math.min(100, Number(req.query.threshold) || 60));
+    const allRecipes = await Recipe.find({}).lean();
+    const inv = await Inventory.find({}).lean();
 
-  const scored = allRecipes
-    .map((r) => {
-      let have = 0;
-      r.ingredients.forEach((line) => {
-        let ok = false;
-        for (const it of inv) {
-          if (inventoryMatchScore(line, it.ingredientName) >= 0.8) {
-            ok = true;
-            break;
+    const scored = allRecipes
+      .map(r => {
+        let have = 0;
+        (r.ingredients || []).forEach(line => {
+          let ok = false;
+          for (const it of inv) {
+            if (inventoryMatchScore(line, it.ingredientName) >= 0.8) { ok = true; break; }
           }
-        }
-        if (ok) have += 1;
-      });
-      const total = r.ingredients.length || 1;
-      const pct = Math.round((have / total) * 100);
-      return { recipe: r, pct };
-    })
-    .sort((a, b) => b.pct - a.pct);
+          if (ok) have += 1;
+        });
+        const total = r.ingredients?.length || 1;
+        const pct = Math.round((have / total) * 100);
+        return { recipe: r, pct };
+      })
+      .sort((a, b) => b.pct - a.pct);
 
-  const suggested = scored.filter((x) => x.pct >= threshold);
-  res.render("suggestRecipes", {
-    studentId: STUDENT_ID,
-    threshold,
-    suggested,
-    all: scored,
-  });
+    const suggested = scored.filter(x => x.pct >= threshold);
+
+    res.render("suggestRecipes", {
+      studentId: STUDENT_ID,
+      threshold,
+      suggested,
+      all: scored,
+    });
+  } catch (err) {
+    console.error("Suggest recipes error:", err);
+    res.status(500).render("error", { studentId: STUDENT_ID, message: "Failed to build suggestions." });
+  }
 });
 
-/* ---------- Debug routes list ---------- */
-// Root -> Home
-app.get("/", (req, res) => res.redirect(`/home-${STUDENT_ID}`));
+/* Debug routes */
+app.get("/", (req, res) => {
+  res.redirect(`/home-${STUDENT_ID}`); // root redirect
+});
 
-// Home (DB-driven)
+/* Home (DB-driven) */
 app.get(`/home-${STUDENT_ID}`, async (req, res) => {
   const user = getAuthFromCookie(req);
   if (!user) return res.redirect(`/login-${STUDENT_ID}`);
 
   try {
-    const [ totalUsers, recipeCount, inventoryCount, cuisines, valueAgg ] = await Promise.all([
-      User.countDocuments(),
-      Recipe.countDocuments(),
-      Inventory.countDocuments(),
-      Recipe.distinct("cuisineType"),
-      Inventory.aggregate([{ $group: { _id: null, total: { $sum: "$cost" } } }]),
-    ]);
+    const [totalUsers, recipeCount, inventoryCount, cuisines, valueAgg] =
+      await Promise.all([
+        User.countDocuments(),
+        Recipe.countDocuments(),
+        Inventory.countDocuments(),
+        Recipe.distinct("cuisineType"),
+        Inventory.aggregate([{ $group: { _id: null, total: { $sum: "$cost" } } }]),
+      ]);
 
     const totalInventoryValue = (valueAgg[0]?.total || 0).toFixed(2);
 
@@ -919,15 +1076,17 @@ app.get(`/home-${STUDENT_ID}`, async (req, res) => {
         cuisineTypes: cuisines.length,
         totalInventoryValue,
       },
-      
     });
   } catch (err) {
     console.error("Home stats error:", err);
-    return res.render("error", { studentId: STUDENT_ID, message: "Failed to load dashboard stats." });
+    return res.render("error", {
+      studentId: STUDENT_ID,
+      message: "Failed to load dashboard stats.",
+    });
   }
 });
 
-
+/* Routes listing */
 app.get(`/routes-${STUDENT_ID}`, (req, res) => {
   const routes = [];
   app._router.stack.forEach((m) => {
@@ -939,25 +1098,26 @@ app.get(`/routes-${STUDENT_ID}`, (req, res) => {
   res.type("text").send(routes.sort().join("\n"));
 });
 
-/* ---------- Errors ---------- */
+/* Errors */
 app.get(`/error-${STUDENT_ID}`, (req, res) => {
   const message = req.query.msg || "Invalid request.";
   res.status(400).render("error", { studentId: STUDENT_ID, message });
 });
 
 app.use((err, req, res, next) => {
-  console.error(" Server error:", err);
+  console.error("Server error:", err);
   res
     .status(500)
     .render("error", { studentId: STUDENT_ID, message: err.message || "Server error" });
 });
 
 app.use((req, res) => {
-  res.status(404).render("notfound", { studentId: STUDENT_ID, path: req.originalUrl });
+  res
+    .status(404)
+    .render("notfound", { studentId: STUDENT_ID, path: req.originalUrl });
 });
 
-
-/* ---------- Start ---------- */
+/* Start server */
 app.listen(PORT, () => {
   console.log(
     `✅ CloudKitchen Pro running at http://localhost:${PORT}/home-${STUDENT_ID}`

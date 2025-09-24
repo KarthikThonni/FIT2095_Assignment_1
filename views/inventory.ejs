@@ -5,7 +5,6 @@
     <h1 class="mb-3">Inventory Dashboard</h1>
     <a href="/add-inventory-<%= studentId %>" class="btn btn-success mb-3">Add Item</a>
 
-    <!-- NEW: Low-stock banner -->
     <% if (typeof lowStockCount !== 'undefined' && lowStockCount > 0) { %>
       <div class="alert alert-warning">
            <strong><%= lowStockCount %></strong> item(s) are low on stock.

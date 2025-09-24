@@ -16,12 +16,10 @@
       <div class="collapse navbar-collapse" id="topnav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-          <!-- Home -->
           <li class="nav-item">
             <a class="nav-link" href="/home-<%= studentId %>">Home</a>
           </li>
 
-          <!-- Recipes: chefs only -->
           <% if (user && user.role === 'chef') { %>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Recipes</a>
@@ -36,7 +34,6 @@
             </li>
           <% } %>
 
-          <!-- Inventory: everyone -->
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Inventory</a>
             <ul class="dropdown-menu">
@@ -48,7 +45,6 @@
             </ul>
           </li>
 
-          <!-- Reports: admin only (placeholder) -->
           <% if (user && user.role === 'admin') { %>
             <li class="nav-item">
               <a class="nav-link" href="#" tabindex="-1" aria-disabled="true">Reports</a>
@@ -56,7 +52,6 @@
           <% } %>
         </ul>
 
-        <!-- Right side: user + logout -->
         <div class="d-flex align-items-center gap-2">
           <% if (user) { %>
             <span class="navbar-text text-white small">

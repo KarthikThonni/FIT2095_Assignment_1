@@ -10,13 +10,13 @@
 
   <form method="POST" action="/api/add-recipe-<%= studentId %>" class="row g-3">
 
-    <!-- Title -->
+    
     <div class="col-md-6">
       <label class="form-label">Title</label>
       <input name="title" type="text" class="form-control" required minlength="3" maxlength="100" />
     </div>
 
-    <!-- Chef -->
+    
     <div class="col-md-6">
       <label class="form-label">Chef</label>
       <input name="chef" class="form-control" value="<%= user?.fullname %>" readonly />
@@ -24,7 +24,7 @@
     </div>
 
 
-    <!-- Meal Type -->
+    
     <div class="col-md-4">
       <label class="form-label">Meal Type</label>
       <select name="mealType" class="form-select" required>
@@ -34,7 +34,7 @@
       </select>
     </div>
 
-    <!-- Cuisine Type -->
+    
     <div class="col-md-4">
       <label class="form-label">Cuisine Type</label>
       <select name="cuisineType" class="form-select" required>
@@ -44,13 +44,13 @@
       </select>
     </div>
 
-    <!-- Prep Time -->
+    
     <div class="col-md-4">
       <label class="form-label">Prep Time (mins)</label>
       <input name="prepTime" type="number" min="1" max="480" class="form-control" required />
     </div>
 
-    <!-- Difficulty -->
+    
     <div class="col-md-4">
       <label class="form-label">Difficulty</label>
       <select name="difficulty" class="form-select" required>
@@ -60,19 +60,19 @@
       </select>
     </div>
 
-    <!-- Servings -->
+    
     <div class="col-md-4">
       <label class="form-label">Servings</label>
       <input name="servings" type="number" min="1" max="20" class="form-control" required />
     </div>
 
-    <!-- Ingredients -->
+    
     <div class="col-12">
       <label class="form-label">Ingredients (one per line)</label>
       <textarea name="ingredients" class="form-control" rows="4" required></textarea>
     </div>
 
-    <!-- Instructions -->
+    
     <div class="col-12">
       <label class="form-label">Instructions (one per line)</label>
       <textarea name="instructions" class="form-control" rows="4" required></textarea>
