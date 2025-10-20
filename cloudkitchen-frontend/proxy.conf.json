@@ -1,0 +1,6 @@
+{
+  "/api/*-33905320": { "target": "http://localhost:8080", "secure": false, "changeOrigin": true },
+  "/login-33905320": { "target": "http://localhost:8080", "secure": false, "changeOrigin": true },
+  "/register-33905320": { "target": "http://localhost:8080", "secure": false, "changeOrigin": true },
+  "/logout-33905320": { "target": "http://localhost:8080", "secure": false, "changeOrigin": true }
+}
