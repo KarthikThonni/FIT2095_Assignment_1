@@ -59,7 +59,7 @@ function clearAuthCookie(res) {
   res.setHeader("Set-Cookie", `${AUTH_COOKIE}=; Path=/; Max-Age=0; HttpOnly`);
 }
 
-/* -------------------- Helpers (kept for Tasks 3–4) -------------------- */
+/* -------------------- Helpers -------------------- */
 function toLines(text) {
   return String(text || "")
     .split(/\r?\n/)
@@ -68,11 +68,30 @@ function toLines(text) {
 }
 const MEAL_TYPES = new Set(["Breakfast", "Lunch", "Dinner", "Snack"]);
 const DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
-const INV_UNITS = new Set(["pieces","kg","g","liters","ml","cups","tbsp","tsp","dozen"]);
-const INV_CATEGORIES = new Set([
-  "Vegetables","Fruits","Meat","Dairy","Grains","Spices","Beverages","Frozen","Canned","Other",
+const INV_UNITS = new Set([
+  "pieces",
+  "kg",
+  "g",
+  "liters",
+  "ml",
+  "cups",
+  "tbsp",
+  "tsp",
+  "dozen",
 ]);
-const INV_LOCATIONS = new Set(["Fridge","Freezer","Pantry","Counter","Cupboard"]);
+const INV_CATEGORIES = new Set([
+  "Vegetables",
+  "Fruits",
+  "Meat",
+  "Dairy",
+  "Grains",
+  "Spices",
+  "Beverages",
+  "Frozen",
+  "Canned",
+  "Other",
+]);
+const INV_LOCATIONS = new Set(["Fridge", "Freezer", "Pantry", "Counter", "Cupboard"]);
 
 const RECIPE_ID_REGEX = /^R-(\d{5})$/;
 const INVENTORY_ID_REGEX = /^I-(\d{5})$/;
@@ -108,7 +127,11 @@ app.post(`/api/register-${STUDENT_ID}`, async (req, res) => {
       return badJson(res, 400, "Please enter a valid email address.");
     }
     if (!PASSWORD_COMPLEXITY.test(password)) {
-      return badJson(res, 400, "Password must be 8+ chars and include uppercase, lowercase, number, and special character.");
+      return badJson(
+        res,
+        400,
+        "Password must be 8+ chars and include uppercase, lowercase, number, and special character."
+      );
     }
     if (!ROLES.has(role)) {
       return badJson(res, 400, "Role must be admin, chef, or manager.");
@@ -163,7 +186,7 @@ app.post(`/logout-${STUDENT_ID}`, (req, res) => {
   res.json({ ok: true });
 });
 
-// Current user (for header / guards)
+// Current user (header/guards)
 app.get(`/api/me-${STUDENT_ID}`, (req, res) => {
   const u = getAuthFromCookie(req);
   if (!u) return res.status(401).json({ ok: false });
@@ -171,7 +194,7 @@ app.get(`/api/me-${STUDENT_ID}`, (req, res) => {
 });
 
 // Dashboard stats
-app.get(`/api/stats-${STUDENT_ID}`, async (req, res) => {
+app.get(`/api/stats-${STUDENT_ID}`, async (_req, res) => {
   try {
     const [totalUsers, recipeCount, inventoryCount] = await Promise.all([
       User.countDocuments(),
@@ -185,14 +208,147 @@ app.get(`/api/stats-${STUDENT_ID}`, async (req, res) => {
   }
 });
 
-/* ===========================================================
-   (Optional) Placeholders for Task 3 & 4 CRUD you’ll add next
-   - /api/recipes-33905320  (GET/POST)
-   - /api/recipes-33905320/:id  (PUT/DELETE)
-   - /api/inventory-33905320  (GET/POST)
-   - /api/inventory-33905320/:id  (PUT/DELETE)
-   Keep helpers above for validation.
-   =========================================================== */
+/* ===================== Recipes API ===================== */
+const RECIPES_API = `/api/recipes-${STUDENT_ID}`;
+const CUISINES = [
+  "Italian",
+  "Asian",
+  "Mexican",
+  "American",
+  "French",
+  "Indian",
+  "Mediterranean",
+  "Other",
+];
+
+// textarea helper → string[]
+function toArr(val) {
+  if (Array.isArray(val)) return val.filter(Boolean).map(String);
+  return String(val || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// LIST
+app.get(RECIPES_API, async (_req, res) => {
+  try {
+    const recipes = await Recipe.find().lean();
+    res.json({ ok: true, recipes });
+  } catch (e) {
+    console.error("GET list recipes error:", e);
+    res.status(500).json({ ok: false, recipes: [] });
+  }
+});
+
+// GET by id (accepts recipeId or Mongo _id)
+app.get(`${RECIPES_API}/:id`, async (req, res) => {
+  try {
+    const id = String(req.params.id).trim();
+    const byFriendly = await Recipe.findOne({ recipeId: id }).lean();
+    const doc = byFriendly || (await Recipe.findById(id).lean().catch(() => null));
+    if (!doc) return res.status(404).json({ ok: false, message: "Not Found" });
+    res.json({ ok: true, recipe: doc });
+  } catch (e) {
+    console.error("GET recipe error:", e);
+    res.status(500).json({ ok: false, message: "Failed" });
+  }
+});
+
+// CREATE
+app.post(RECIPES_API, async (req, res) => {
+  try {
+    const auth = getAuthFromCookie(req) || { userId: "U-00000", fullname: "Guest" };
+    const b = req.body || {};
+
+    // simple validation
+    if (!b.title || !b.mealType || !b.cuisineType || !b.prepTime || !b.difficulty || !b.servings) {
+      return res.status(400).json({ ok: false, message: "Missing fields" });
+    }
+    if (!MEAL_TYPES.has(b.mealType)) {
+      return res.status(400).json({ ok: false, message: "Bad mealType" });
+    }
+    if (!CUISINES.includes(b.cuisineType)) {
+      return res.status(400).json({ ok: false, message: "Bad cuisineType" });
+    }
+
+    // next friendly id
+    const last = await Recipe.findOne().sort({ recipeId: -1 }).lean();
+    let nextNum = 1;
+    if (last?.recipeId) {
+      const m = String(last.recipeId).match(/R-(\d+)/);
+      if (m) nextNum = parseInt(m[1], 10) + 1;
+    }
+    const recipeId = `R-${String(nextNum).padStart(5, "0")}`;
+
+    const doc = await Recipe.create({
+      recipeId,
+      userId: auth.userId,
+      title: String(b.title || "").trim(),
+      chef: auth.fullname,
+      ingredients: toArr(b.ingredients),
+      instructions: toArr(b.instructions),
+      mealType: b.mealType,
+      cuisineType: b.cuisineType,
+      prepTime: Number(b.prepTime || 0),
+      difficulty: b.difficulty,
+      servings: Number(b.servings || 1),
+      createdDate: b.createdDate || new Date().toISOString().slice(0, 10),
+    });
+
+    res.status(201).json({ ok: true, recipe: doc.toObject() });
+  } catch (e) {
+    console.error("CREATE recipe error:", e);
+    res.status(400).json({ ok: false, message: "Invalid data" });
+  }
+});
+
+// UPDATE
+app.put(`${RECIPES_API}/:id`, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const update = {
+      title: String(b.title || "").trim(),
+      chef: b.chef, // optional (usually from cookie)
+      ingredients: toArr(b.ingredients),
+      instructions: toArr(b.instructions),
+      mealType: b.mealType,
+      cuisineType: b.cuisineType,
+      prepTime: Number(b.prepTime || 0),
+      difficulty: b.difficulty,
+      servings: Number(b.servings || 1),
+      createdDate: b.createdDate || new Date().toISOString().slice(0, 10),
+    };
+
+    const r = await Recipe.findOneAndUpdate(
+      { recipeId: req.params.id },
+      { $set: update },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!r) return res.status(404).json({ ok: false, message: "Not Found" });
+    res.json({ ok: true, recipe: r });
+  } catch (e) {
+    console.error("UPDATE recipe error:", e);
+    res.status(400).json({ ok: false, message: "Update failed" });
+  }
+});
+
+// DELETE
+app.delete(`${RECIPES_API}/:id`, async (req, res) => {
+  try {
+    const id = String(req.params.id).trim();
+    let r = await Recipe.deleteOne({ recipeId: id });
+    if (r.deletedCount === 0) {
+      r = await Recipe.deleteOne({ _id: id }).catch(() => ({ deletedCount: 0 }));
+    }
+    if (r.deletedCount === 0) return res.status(404).json({ ok: false, message: "Not Found" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("DELETE recipe error:", e);
+    res.status(500).json({ ok: false, message: "Delete failed" });
+  }
+});
 
 /* -------------------- Fallbacks -------------------- */
 app.get("/", (_req, res) => {
