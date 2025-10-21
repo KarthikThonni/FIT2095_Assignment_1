@@ -11,8 +11,6 @@
   "author": "Karthik Thonnithodi",
   "license": "ISC",
   "dependencies": {
-    "bootstrap": "^5.3.3",
-    "ejs": "^3.1.10",
     "express": "^4.19.2",
     "mongoose": "^8.18.2"
   }
