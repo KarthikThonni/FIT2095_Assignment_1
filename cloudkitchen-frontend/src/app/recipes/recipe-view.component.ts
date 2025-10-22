@@ -8,6 +8,7 @@ import { RecipeService, Recipe } from './recipe.service';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
+    <!-- I show the recipe details once it's loaded -->
     <div class="container my-4" *ngIf="recipe; else loading">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="m-0">{{ recipe.title }}</h3>
@@ -18,6 +19,7 @@ import { RecipeService, Recipe } from './recipe.service';
       </div>
 
       <div class="row g-3">
+        <!-- I show recipe info in a card -->
         <div class="col-md-6">
           <div class="card">
             <div class="card-body">
@@ -32,6 +34,7 @@ import { RecipeService, Recipe } from './recipe.service';
           </div>
         </div>
 
+        <!-- I display ingredients and instructions side by side -->
         <div class="col-md-6">
           <div class="card mb-3">
             <div class="card-header fw-semibold">Ingredients</div>
@@ -49,6 +52,7 @@ import { RecipeService, Recipe } from './recipe.service';
       </div>
     </div>
 
+    <!-- I show a fallback while the recipe is loading -->
     <ng-template #loading>
       <div class="container my-4">
         <div class="alert alert-light">Loading recipe…</div>
@@ -57,11 +61,12 @@ import { RecipeService, Recipe } from './recipe.service';
   `
 })
 export class RecipeViewComponent implements OnInit {
-  recipe?: Recipe;
+  recipe?: Recipe; // I store the recipe details here
 
   constructor(private route: ActivatedRoute, private api: RecipeService) {}
 
   ngOnInit(): void {
+    // I extract the recipe ID from the route and fetch its data
     const id = this.route.snapshot.paramMap.get('id') || '';
     this.api.get(id).subscribe(r => this.recipe = r);
   }

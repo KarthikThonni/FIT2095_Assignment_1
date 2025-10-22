@@ -14,25 +14,29 @@ import { HomeComponent } from './home/home.component';
 import { authGuard } from './auth/auth.guard';
 import { NotFoundComponent } from './notfound/notfound.component';
 
+// I define all main application routes here
 export const routes: Routes = [
+  // Redirect empty path to login
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 
-  // Public
+  // Public routes (accessible without login)
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
 
-  // Protected
+  // Protected routes guarded by authGuard
   { path: 'home', component: HomeComponent, canActivate: [authGuard] },
 
+  // Recipe module routes
   { path: 'recipes', component: RecipeListComponent, canActivate: [authGuard] },
   { path: 'recipes/new', component: RecipeFormComponent, canActivate: [authGuard] },
   { path: 'recipes/:id', component: RecipeViewComponent, canActivate: [authGuard] },
   { path: 'recipes/:id/edit', component: RecipeFormComponent, canActivate: [authGuard] },
 
+  // Inventory module routes
   { path: 'inventory', component: InventoryListComponent, canActivate: [authGuard] },
   { path: 'inventory/new', component: InventoryFormComponent, canActivate: [authGuard] },
   { path: 'inventory/:id/edit', component: InventoryFormComponent, canActivate: [authGuard] },
 
-  // 404
+  // Fallback for any unknown routes
   { path: '**', component: NotFoundComponent }
 ];

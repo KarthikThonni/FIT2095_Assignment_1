@@ -12,6 +12,7 @@ import { RecipeService, Recipe } from './recipe.service';
     <div class="container my-4">
       <h3 class="mb-3">{{ isEdit ? 'Edit Recipe' : 'Add Recipe' }}</h3>
 
+      <!-- I wire the template to my reactive form and submit handler -->
       <form [formGroup]="form" (ngSubmit)="save()" class="row g-3">
         <div class="col-md-6">
           <label class="form-label">Title</label>
@@ -75,9 +76,9 @@ import { RecipeService, Recipe } from './recipe.service';
   `
 })
 export class RecipeFormComponent implements OnInit {
-  isEdit = false;
-  recipeId = '';
-  form!: FormGroup; 
+  isEdit = false;            // I track if this is edit mode
+  recipeId = '';             // I store the id when editing
+  form!: FormGroup;          // I hold my reactive form instance
 
   constructor(
     private fb: FormBuilder,
@@ -85,6 +86,7 @@ export class RecipeFormComponent implements OnInit {
     private router: Router,
     private api: RecipeService
   ) {
+    // I define controls + validators and set sensible defaults
     this.form = this.fb.group({
       title: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
       mealType: ['Dinner', Validators.required],
@@ -99,12 +101,14 @@ export class RecipeFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // I read the :id param; if present, I switch to edit mode and load data
     const id = this.route.snapshot.paramMap.get('id');
-    if (!id) return; 
+    if (!id) return;
 
     this.isEdit = true;
     this.recipeId = id;
 
+    // I pre-fill the form using patchValue, converting arrays to line-based textareas
     this.api.get(id).subscribe(r => {
       this.form.patchValue({
         title: r.title,
@@ -120,14 +124,18 @@ export class RecipeFormComponent implements OnInit {
     });
   }
 
+  // I normalise a textarea into a trimmed string[] (one entry per line)
   private toLines(s: string): string[] {
     return String(s || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   }
 
   save(): void {
+    // I block submit if the form is invalid
     if (this.form.invalid) return;
+
     const v = this.form.value;
 
+    // I build the payload, converting strings to numbers and textareas to arrays
     const payload = {
       title: v.title!,
       mealType: v.mealType as any,
@@ -140,6 +148,7 @@ export class RecipeFormComponent implements OnInit {
       instructions: this.toLines(v.instructionsText || ''),
     };
 
+    // I choose create or update based on isEdit, then navigate back on success
     const req = this.isEdit
       ? this.api.update(this.recipeId, payload)
       : this.api.create(payload);

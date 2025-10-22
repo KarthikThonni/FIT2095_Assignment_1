@@ -9,9 +9,11 @@ import { FooterComponent } from './layout/footer.component';
   standalone: true,
   imports: [RouterOutlet, HeaderComponent, FooterComponent],
   template: `
+    <!-- I include a global header, dynamic routed content, and a footer -->
     <app-header></app-header>
     <router-outlet></router-outlet>
     <app-footer></app-footer>
   `
 })
+// This is the root component that bootstraps the whole app
 export class AppComponent {}

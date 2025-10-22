@@ -6,6 +6,7 @@ import { DashboardService } from './dashboard.service';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, interval, startWith, switchMap } from 'rxjs';
 
+// I define data types for stats and user info
 type Stats = { totalUsers: number; recipeCount: number; inventoryCount: number };
 type Me = { ok: boolean; user?: { fullname: string; email: string; role: string } };
 
@@ -38,6 +39,7 @@ type Me = { ok: boolean; user?: { fullname: string; email: string; role: string 
         </div>
       </div>
 
+      <!-- I greet the logged-in user -->
       <div class="card card-soft mb-3">
         <div class="card-body">
           <div class="fw-semibold mb-2">Welcome, {{me?.user?.fullname || 'Guest'}}!</div>
@@ -47,6 +49,7 @@ type Me = { ok: boolean; user?: { fullname: string; email: string; role: string 
         </div>
       </div>
 
+      <!-- I show live stats -->
       <div class="mb-2 fw-semibold">Real-time Statistics</div>
       <div class="row g-3 mb-3">
         <div class="col-md-4">
@@ -75,6 +78,7 @@ type Me = { ok: boolean; user?: { fullname: string; email: string; role: string 
         </div>
       </div>
 
+      <!-- Quick navigation buttons -->
       <div class="fw-semibold mb-2">Quick Actions</div>
       <div class="d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-primary" routerLink="/recipes">View Recipes</a>
@@ -86,22 +90,32 @@ type Me = { ok: boolean; user?: { fullname: string; email: string; role: string 
   `
 })
 export class HomeComponent implements OnInit, OnDestroy {
+  // I store dashboard stats and logged-in user info
   stats: Stats = { totalUsers: 0, recipeCount: 0, inventoryCount: 0 };
   me: Me | null = null;
+
+  // I keep the subscription reference so I can clean up later
   sub?: Subscription;
 
+  // I inject the dashboard service and HttpClient
   constructor(private dash: DashboardService, private http: HttpClient) {}
 
   ngOnInit(): void {
+    // I fetch the logged-in user info from /api/me endpoint
     this.http.get<Me>('/api/me-33905320', { withCredentials: true })
       .subscribe(v => this.me = v, () => this.me = null);
 
+    // I poll the stats every 30 seconds using RxJS interval
     this.sub = interval(30000)
-      .pipe(startWith(0), switchMap(() => this.dash.getStats()))
-      .subscribe(s => this.stats = s);
+      .pipe(
+        startWith(0), // I trigger it immediately once on load
+        switchMap(() => this.dash.getStats()) // I call the service each interval
+      )
+      .subscribe(s => this.stats = s); // I update the stats display
   }
 
   ngOnDestroy(): void {
+    // I unsubscribe to prevent memory leaks
     this.sub?.unsubscribe();
   }
 }

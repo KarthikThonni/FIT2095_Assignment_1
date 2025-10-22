@@ -12,23 +12,22 @@ import { InventoryService, InventoryItem } from './inventory.service';
     <div class="container my-4">
       <h2 class="mb-3">{{isEdit ? 'Edit' : 'Add'}} Inventory Item</h2>
 
+      <!-- I bind my form to Angular's reactive form system -->
       <form [formGroup]="form" (ngSubmit)="save()">
         <div class="row g-3">
 
-          <!-- Ingredient Name -->
+          <!-- Each input field is linked to a control -->
           <div class="col-12">
             <label class="form-label">Ingredient Name</label>
             <input class="form-control" formControlName="ingredientName" />
           </div>
 
-          <!-- Quantity -->
           <div class="col-md-4">
             <label class="form-label">Quantity</label>
             <input type="number" class="form-control"
                    formControlName="quantity" min="0" step="0.01" />
           </div>
 
-          <!-- Unit (SELECT) -->
           <div class="col-md-4">
             <label class="form-label">Unit</label>
             <select class="form-select" formControlName="unit">
@@ -36,7 +35,6 @@ import { InventoryService, InventoryItem } from './inventory.service';
             </select>
           </div>
 
-          <!-- Category (SELECT) -->
           <div class="col-md-4">
             <label class="form-label">Category</label>
             <select class="form-select" formControlName="category">
@@ -44,19 +42,16 @@ import { InventoryService, InventoryItem } from './inventory.service';
             </select>
           </div>
 
-          <!-- Purchase Date -->
           <div class="col-md-6">
             <label class="form-label">Purchase Date</label>
             <input type="date" class="form-control" formControlName="purchaseDate" />
           </div>
 
-          <!-- Expiration Date -->
           <div class="col-md-6">
             <label class="form-label">Expiration Date</label>
             <input type="date" class="form-control" formControlName="expirationDate" />
           </div>
 
-          <!-- Location (SELECT) -->
           <div class="col-md-6">
             <label class="form-label">Location</label>
             <select class="form-select" formControlName="location">
@@ -64,7 +59,6 @@ import { InventoryService, InventoryItem } from './inventory.service';
             </select>
           </div>
 
-          <!-- Cost -->
           <div class="col-md-6">
             <label class="form-label">Cost</label>
             <input type="number" class="form-control"
@@ -72,6 +66,7 @@ import { InventoryService, InventoryItem } from './inventory.service';
           </div>
         </div>
 
+        <!-- Save and cancel buttons -->
         <div class="mt-4 d-flex gap-2">
           <button class="btn btn-primary" type="submit" [disabled]="form.invalid">Save</button>
           <a class="btn btn-secondary" routerLink="/inventory">Cancel</a>
@@ -81,14 +76,17 @@ import { InventoryService, InventoryItem } from './inventory.service';
   `
 })
 export class InventoryFormComponent implements OnInit {
+  // I use Angular's inject() for cleaner dependency injection
   private fb = inject(FormBuilder);
   private svc = inject(InventoryService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
+  // I track whether this page is for editing or adding
   isEdit = false;
   itemId: string | null = null;
 
+  // Dropdown options for selects
   readonly units = ['pieces','kg','g','liters','ml','cups','tbsp','tsp','dozen'];
   readonly categories = [
     'Vegetables','Fruits','Meat','Dairy','Grains','Spices',
@@ -96,6 +94,7 @@ export class InventoryFormComponent implements OnInit {
   ];
   readonly locations = ['Fridge','Freezer','Pantry','Counter','Cupboard'];
 
+  // I define my form controls and apply validators
   form = this.fb.group({
     ingredientName: ['', Validators.required],
     quantity: [0, [Validators.required, Validators.min(0)]],
@@ -108,12 +107,13 @@ export class InventoryFormComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    // I check if there's an 'id' param to know if I'm editing
     this.itemId = this.route.snapshot.paramMap.get('id');
     this.isEdit = !!this.itemId;
 
+    // If editing, I fetch the item and pre-fill the form
     if (this.isEdit && this.itemId) {
       this.svc.get(this.itemId).subscribe(item => {
-        // Pre-fill form on edit
         this.form.patchValue({
           ingredientName: item.ingredientName,
           quantity: item.quantity,
@@ -128,21 +128,25 @@ export class InventoryFormComponent implements OnInit {
     }
   }
 
+  // I use this to make sure the value exists in the dropdown
   private ensureInList(value: string, list: string[]) {
     return list.includes(value) ? value : list[0];
   }
 
   save() {
+    // I prevent submission if form is invalid
     if (this.form.invalid) return;
 
     const payload = this.form.value as Partial<InventoryItem>;
+
+    // I decide whether to create or update based on isEdit
     if (this.isEdit && this.itemId) {
       this.svc.update(this.itemId, payload).subscribe(() => {
-        this.router.navigateByUrl('/inventory');
+        this.router.navigateByUrl('/inventory'); // redirect after update
       });
     } else {
       this.svc.create(payload).subscribe(() => {
-        this.router.navigateByUrl('/inventory');
+        this.router.navigateByUrl('/inventory'); // redirect after add
       });
     }
   }

@@ -18,7 +18,7 @@ import { AuthService } from '../auth/auth.service';
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container">
 
-      <!-- Brand: clickable everywhere EXCEPT on /login or /register -->
+      <!-- Brand: only clickable if not on login/register -->
       <ng-container *ngIf="!onAuthPage(); else plainBrand">
         <a class="navbar-brand" routerLink="/home">CloudKitchen Pro</a>
       </ng-container>
@@ -33,7 +33,7 @@ import { AuthService } from '../auth/auth.service';
       </button>
 
       <div id="mainNav" class="collapse navbar-collapse">
-        <!-- Left: hide nav links on login/register -->
+        <!-- I hide main navigation links when on login/register pages -->
         <ul class="navbar-nav me-auto mb-2 mb-lg-0" *ngIf="!onAuthPage()">
           <li class="nav-item">
             <a routerLink="/home" routerLinkActive="active" class="nav-link">Home</a>
@@ -46,9 +46,7 @@ import { AuthService } from '../auth/auth.service';
           </li>
         </ul>
 
-        <!-- Right: 
-             - Logged in: show only Logout (never show “Guest” text)
-             - Logged out: show Login/Register EXCEPT on login/register pages (show nothing there) -->
+        <!-- I switch between login/register buttons and logout based on auth state -->
         <div class="d-flex align-items-center gap-2">
           <ng-container *ngIf="(isLoggedIn | async); else authBtns">
             <button class="btn btn-sm btn-dark" (click)="doLogout()">Logout</button>
@@ -66,22 +64,35 @@ import { AuthService } from '../auth/auth.service';
   `
 })
 export class HeaderComponent {
+  // I inject router and auth service using Angular’s inject() function
   private router = inject(Router);
   private auth = inject(AuthService);
 
+  // I store the login state as an observable
   isLoggedIn = this.auth.isLoggedIn$();
+
+  // I use a signal to track if the current page is login/register
   private _onAuthPage = signal<boolean>(false);
 
   constructor() {
-    const compute = (url: string) => this._onAuthPage.set(/^\/(login|register)(\/|$)/.test(url));
-    compute(this.router.url);
+    // I check the current route and update _onAuthPage based on the URL
+    const compute = (url: string) =>
+      this._onAuthPage.set(/^\/(login|register)(\/|$)/.test(url));
+
+    compute(this.router.url); // I set initial state on load
+
+    // I listen to navigation events to reactively update when route changes
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))
       .subscribe(e => compute((e as NavigationEnd).urlAfterRedirects));
   }
 
-  onAuthPage() { return this._onAuthPage(); }
+  // I expose a method to check if the current route is an auth page
+  onAuthPage() {
+    return this._onAuthPage();
+  }
 
+  // I log out the user and redirect to the login page
   doLogout() {
     this.auth.logout().subscribe(() => this.router.navigateByUrl('/login'));
   }

@@ -6,8 +6,11 @@ import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // I register the app’s routing configuration
     provideRouter(routes),
+    // I enable HttpClient globally for API calls
     provideHttpClient(),
-    importProvidersFrom(FormsModule) 
+    // I import FormsModule globally for template-driven forms
+    importProvidersFrom(FormsModule)
   ]
 };
