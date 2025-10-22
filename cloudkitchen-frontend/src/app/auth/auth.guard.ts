@@ -1,12 +1,15 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn, Router, UrlTree } from '@angular/router';
+import { map, catchError, of } from 'rxjs';
 import { AuthService } from './auth.service';
-import { map } from 'rxjs';
 
-export const authGuard: CanActivateFn = () => {
+export const authGuard: CanActivateFn = (route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.check().pipe(
-    map(ok => (ok ? true : router.createUrlTree(['/login'])))
+
+  // Verify/restore session on hard refresh
+  return auth.ensureSession().pipe(
+    map(ok => ok ? true : router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } })),
+    catchError(() => of(router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } })))
   );
 };

@@ -1,0 +1,58 @@
+{
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "resources": {
+        "files": [
+          "/favicon.ico",
+          "/index.html",
+          "/*.css",
+          "/*.js"
+        ]
+      }
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "resources": {
+        "files": [
+          "/assets/**",
+          "/*.(png|jpg|jpeg|svg|webp)"
+        ]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "stats",
+      "urls": ["/api/stats-33905320"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 20,
+        "maxAge": "5m",
+        "timeout": "3s"
+      }
+    },
+    {
+      "name": "recipes",
+      "urls": ["/api/recipes-33905320", "/api/recipes-33905320/*"],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 100,
+        "maxAge": "10m"
+      }
+    },
+    {
+      "name": "inventory",
+      "urls": ["/api/inventory-33905320", "/api/inventory-33905320/*"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 100,
+        "maxAge": "5m",
+        "timeout": "3s"
+      }
+    }
+  ]
+}

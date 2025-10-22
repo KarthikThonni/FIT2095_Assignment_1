@@ -1,15 +1,19 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app/app';
 import { provideRouter } from '@angular/router';
-import { routes } from './app/app.routes'; 
+import { routes } from './app/app.routes';
 import { provideHttpClient } from '@angular/common/http';
-import { importProvidersFrom } from '@angular/core';
+import { importProvidersFrom, isDevMode } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { provideServiceWorker } from '@angular/service-worker';
 
 bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(routes),
     provideHttpClient(),
-    importProvidersFrom(FormsModule, ReactiveFormsModule)
+    importProvidersFrom(FormsModule, ReactiveFormsModule),
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),      // SW only in production build
+    }),
   ]
 });

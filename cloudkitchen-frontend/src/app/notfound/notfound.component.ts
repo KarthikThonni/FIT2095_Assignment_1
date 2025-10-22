@@ -3,15 +3,15 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 @Component({
-  selector: 'app-notfound',
   standalone: true,
+  selector: 'app-not-found',
   imports: [CommonModule, RouterLink],
   template: `
-    <div class="container mt-5 text-center">
-      <h3 class="text-warning">404 Not Found</h3>
-      <p>The page you requested doesn’t exist.</p>
-      <a routerLink="/home" class="btn btn-secondary">Back to Home</a>
-    </div>
+  <div class="container py-5">
+    <h1 class="display-6 mb-3">Page not found</h1>
+    <p class="text-muted mb-4">The page you’re looking for doesn’t exist.</p>
+    <a routerLink="/home" class="btn btn-primary">Go to Home</a>
+  </div>
   `
 })
 export class NotFoundComponent {}

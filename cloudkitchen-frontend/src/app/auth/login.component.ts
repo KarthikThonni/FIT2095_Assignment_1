@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from './auth.service';
 
 @Component({
@@ -9,46 +9,67 @@ import { AuthService } from './auth.service';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-  <div class="container mt-4" style="max-width:420px">
-    <h3 class="mb-3">Login</h3>
-
-    <div *ngIf="error" class="alert alert-danger">Invalid email or password.</div>
+  <div class="container py-4" style="max-width: 420px;">
+    <h2 class="mb-3">Login</h2>
 
     <form (ngSubmit)="onSubmit()" #f="ngForm" novalidate>
       <div class="mb-3">
         <label class="form-label">Email</label>
-        <input class="form-control" name="email" [(ngModel)]="email" required type="email">
+        <input class="form-control"
+               name="email"
+               type="email"
+               required
+               [(ngModel)]="model.email">
       </div>
 
       <div class="mb-3">
         <label class="form-label">Password</label>
-        <input class="form-control" name="password" [(ngModel)]="password" required type="password">
+        <input class="form-control"
+               name="password"
+               type="password"
+               required
+               [(ngModel)]="model.password">
       </div>
 
-      <button class="btn btn-success w-100" [disabled]="f.invalid">Login</button>
+      <div class="text-danger mb-2" *ngIf="error">{{ error }}</div>
+
+      <button class="btn btn-primary w-100" [disabled]="loading || !f.valid">
+        {{ loading ? 'Signing in…' : 'Login' }}
+      </button>
     </form>
 
-    <p class="mt-3 text-center">
-      Don’t have an account? <a routerLink="/register">Register</a>
-    </p>
+    <div class="mt-3 text-center">
+      <a routerLink="/register">Need an account? Register</a>
+    </div>
   </div>
   `
 })
 export class LoginComponent {
-  email = '';
-  password = '';
-  error = false;
+  model = { email: '', password: '' };
+  loading = false;
+  error = '';
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {}
 
   onSubmit() {
-    this.error = false;
-    const email = this.email.trim().toLowerCase();
-    const password = this.password.trim();
-    this.auth.login({ email, password }).subscribe(ok => {
-      if (ok) this.router.navigateByUrl('/home');
-      else this.error = true;
+    this.error = '';
+    this.loading = true;
+
+    this.auth.login(this.model).subscribe(ok => {
+      this.loading = false;
+      if (ok) {
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/home';
+        this.router.navigateByUrl(returnUrl);
+      } else {
+        this.error = 'Invalid email or password.';
+      }
+    }, _ => {
+      this.loading = false;
+      this.error = 'Login failed. Please try again.';
     });
   }
-
 }
