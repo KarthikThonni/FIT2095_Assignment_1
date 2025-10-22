@@ -76,4 +76,14 @@ export class AuthService {
     );
   }
 
+  fetchMe() {
+    return this.http.get<{ ok:boolean; user?: { fullname:string } }>(
+      '/api/me-33905320', { withCredentials: true }
+    ).pipe(
+      map(r => r.user),
+      catchError(() => of(undefined))
+    );
+  }
+
+
 }

@@ -350,6 +350,153 @@ app.delete(`${RECIPES_API}/:id`, async (req, res) => {
   }
 });
 
+/* ===================== Inventory API (JSON) ===================== */
+const INV_API = `/api/inventory-${STUDENT_ID}`;
+
+// helper: low-stock rule (same thresholds you used in A2)
+function isLowStockByUnit(quantity, unit) {
+  const q = Number(quantity) || 0;
+  switch (unit) {
+    case "pieces": return q < 3;
+    case "dozen":  return q < 1;
+    case "kg":     return q < 0.5;
+    case "g":      return q < 100;
+    case "liters": return q < 0.5;
+    case "ml":     return q < 100;
+    case "cups":   return q < 1;
+    case "tbsp":   return q < 2;
+    case "tsp":    return q < 3;
+    default:       return q <= 0;
+  }
+  
+}
+function daysUntil(dateStr) {
+  const today = new Date();
+  const exp = new Date(dateStr);
+  return Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+}
+
+// LIST (with flags + totalValue)
+app.get(INV_API, async (_req, res) => {
+  try {
+    const docs = await Inventory.find({}).sort({ createdAt: -1 }).lean();
+    const items = docs.map(x => {
+      const dte = daysUntil(x.expirationDate);
+      return {
+        ...x,
+        daysToExpire: dte,
+        isExpiringSoon: dte <= 3,
+        isExpired: dte < 0,
+        isLowStock: isLowStockByUnit(x.quantity, x.unit),
+      };
+    });
+    const totalValue = items.reduce((acc, it) => acc + (Number(it.quantity) * Number(it.cost || 0)), 0);
+    res.json({ ok: true, items, totalValue: Number(totalValue.toFixed(2)) });
+  } catch (e) {
+    console.error('GET inventory list error:', e);
+    res.status(500).json({ ok: false, items: [], totalValue: 0 });
+  }
+});
+
+// GET one (by friendly inventoryId OR Mongo _id)
+app.get(`${INV_API}/:id`, async (req, res) => {
+  try {
+    const id = String(req.params.id).trim();
+    const byFriendly = await Inventory.findOne({ inventoryId: id }).lean();
+    const doc = byFriendly || (await Inventory.findById(id).lean().catch(() => null));
+    if (!doc) return res.status(404).json({ ok: false, message: 'Not Found' });
+    res.json({ ok: true, item: doc });
+  } catch (e) {
+    console.error('GET inventory error:', e);
+    res.status(500).json({ ok: false, message: 'Failed' });
+  }
+});
+
+// CREATE
+app.post(INV_API, async (req, res) => {
+  try {
+    const auth = getAuthFromCookie(req);
+    if (!auth) return res.status(401).json({ ok: false, message: 'Login required' });
+
+    const b = req.body || {};
+    // minimal validation; keep consistent with A2 rules
+    const required = ['ingredientName','quantity','unit','category','purchaseDate','expirationDate','location','cost'];
+    for (const k of required) if (b[k] == null || String(b[k]).trim() === '') {
+      return res.status(400).json({ ok: false, message: `Missing field: ${k}` });
+    }
+    if (!INV_UNITS.has(b.unit)) return res.status(400).json({ ok: false, message: 'Bad unit' });
+    if (!INV_CATEGORIES.has(b.category)) return res.status(400).json({ ok: false, message: 'Bad category' });
+    if (!INV_LOCATIONS.has(b.location)) return res.status(400).json({ ok: false, message: 'Bad location' });
+
+    const count = await Inventory.countDocuments();
+    const inventoryId = `I-${String(count + 1).padStart(5, '0')}`;
+
+    const doc = await Inventory.create({
+      inventoryId,
+      userId: auth.userId,
+      ingredientName: String(b.ingredientName).trim(),
+      quantity: Number(b.quantity),
+      unit: b.unit,
+      category: b.category,
+      purchaseDate: b.purchaseDate,
+      expirationDate: b.expirationDate,
+      location: b.location,
+      cost: Number(b.cost),
+      createdDate: b.createdDate || new Date().toISOString().slice(0,10),
+    });
+
+    res.status(201).json({ ok: true, item: doc.toObject() });
+  } catch (e) {
+    console.error('CREATE inventory error:', e);
+    res.status(400).json({ ok: false, message: 'Invalid data' });
+  }
+});
+
+// UPDATE (by inventoryId)
+app.put(`${INV_API}/:id`, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const update = {
+      ingredientName: String(b.ingredientName || '').trim(),
+      quantity: Number(b.quantity || 0),
+      unit: b.unit,
+      category: b.category,
+      purchaseDate: b.purchaseDate,
+      expirationDate: b.expirationDate,
+      location: b.location,
+      cost: Number(b.cost || 0),
+      createdDate: b.createdDate || new Date().toISOString().slice(0,10),
+    };
+    const r = await Inventory.findOneAndUpdate(
+      { inventoryId: req.params.id },
+      { $set: update },
+      { new: true, runValidators: true }
+    ).lean();
+    if (!r) return res.status(404).json({ ok: false, message: 'Not Found' });
+    res.json({ ok: true, item: r });
+  } catch (e) {
+    console.error('UPDATE inventory error:', e);
+    res.status(400).json({ ok: false, message: 'Update failed' });
+  }
+});
+
+// DELETE (by friendly id or _id)
+app.delete(`${INV_API}/:id`, async (req, res) => {
+  try {
+    const id = String(req.params.id).trim();
+    let r = await Inventory.deleteOne({ inventoryId: id });
+    if (r.deletedCount === 0) {
+      r = await Inventory.deleteOne({ _id: id }).catch(() => ({ deletedCount: 0 }));
+    }
+    if (r.deletedCount === 0) return res.status(404).json({ ok: false, message: 'Not Found' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE inventory error:', e);
+    res.status(500).json({ ok: false, message: 'Delete failed' });
+  }
+});
+
+
 /* -------------------- Fallbacks -------------------- */
 app.get("/", (_req, res) => {
   res.json({ ok: true, message: "CloudKitchen Pro API (A3) running" });

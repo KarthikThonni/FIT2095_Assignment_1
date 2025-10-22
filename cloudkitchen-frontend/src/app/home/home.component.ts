@@ -79,6 +79,8 @@ type Me = { ok: boolean; user?: { fullname: string; email: string; role: string 
       <div class="d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-primary" routerLink="/recipes">View Recipes</a>
         <a class="btn btn-outline-primary" routerLink="/recipes/new">Add Recipe</a>
+        <a class="btn btn-success" routerLink="/inventory">View Inventory</a>
+        <a class="btn btn-outline-success" routerLink="/inventory/new">Add Inventory</a>
       </div>
     </div>
   `
