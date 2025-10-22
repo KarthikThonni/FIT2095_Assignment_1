@@ -2,13 +2,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';              // ⬅️ add this
+import { FormsModule } from '@angular/forms';              
 import { InventoryService, InventoryItem } from './inventory.service';
 
 @Component({
   selector: 'app-inventory-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],        // ⬅️ include here
+  imports: [CommonModule, FormsModule, RouterLink],        
   template: `
     <div class="container my-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -108,7 +108,7 @@ export class InventoryListComponent implements OnInit {
   }
   isExpiringSoon(it: InventoryItem) {
     const d = new Date(it.expirationDate).getTime() - Date.now();
-    return d > 0 && d <= 3 * 24 * 60 * 60 * 1000; // 3 days
+    return d > 0 && d <= 3 * 24 * 60 * 60 * 1000; 
   }
 
   totalValue() {

@@ -77,7 +77,7 @@ import { RecipeService, Recipe } from './recipe.service';
 export class RecipeFormComponent implements OnInit {
   isEdit = false;
   recipeId = '';
-  form!: FormGroup; // <-- declare first, initialize later
+  form!: FormGroup; 
 
   constructor(
     private fb: FormBuilder,
@@ -85,7 +85,6 @@ export class RecipeFormComponent implements OnInit {
     private router: Router,
     private api: RecipeService
   ) {
-    // ✅ initialize here (after fb is injected)
     this.form = this.fb.group({
       title: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
       mealType: ['Dinner', Validators.required],
@@ -101,7 +100,7 @@ export class RecipeFormComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (!id) return; // create mode
+    if (!id) return; 
 
     this.isEdit = true;
     this.recipeId = id;

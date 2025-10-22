@@ -8,6 +8,6 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideHttpClient(),
-    importProvidersFrom(FormsModule) // enables template-driven forms ([(ngModel)])
+    importProvidersFrom(FormsModule) 
   ]
 };

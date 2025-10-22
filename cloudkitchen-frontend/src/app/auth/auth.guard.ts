@@ -7,7 +7,6 @@ export const authGuard: CanActivateFn = (route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  // Verify/restore session on hard refresh
   return auth.ensureSession().pipe(
     map(ok => ok ? true : router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } })),
     catchError(() => of(router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } })))

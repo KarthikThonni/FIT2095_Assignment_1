@@ -18,7 +18,6 @@ export class AuthService {
     return this.loggedIn$.asObservable();
   }
 
-  /** Called by guard to verify cookie-backed session (also works after refresh). */
   ensureSession() {
     return this.http.get<{ ok: boolean }>(`/api/me-33905320`, { withCredentials: true }).pipe(
       map(r => !!r?.ok),

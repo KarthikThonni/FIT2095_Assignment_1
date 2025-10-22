@@ -89,7 +89,6 @@ export class InventoryFormComponent implements OnInit {
   isEdit = false;
   itemId: string | null = null;
 
-  // Allowed values for dropdowns (match your backend validation)
   readonly units = ['pieces','kg','g','liters','ml','cups','tbsp','tsp','dozen'];
   readonly categories = [
     'Vegetables','Fruits','Meat','Dairy','Grains','Spices',

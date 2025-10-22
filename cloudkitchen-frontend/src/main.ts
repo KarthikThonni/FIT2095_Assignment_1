@@ -13,7 +13,7 @@ bootstrapApplication(AppComponent, {
     provideHttpClient(),
     importProvidersFrom(FormsModule, ReactiveFormsModule),
     provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),      // SW only in production build
+      enabled: !isDevMode(),      
     }),
   ]
 });

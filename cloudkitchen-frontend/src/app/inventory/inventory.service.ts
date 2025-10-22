@@ -11,12 +11,12 @@ export interface InventoryItem {
   unit: string;
   category: string;
 
-  purchaseDate: string;   // YYYY-MM-DD
-  expirationDate: string; // YYYY-MM-DD
+  purchaseDate: string;   
+  expirationDate: string; 
   location: string;
 
-  cost: number;           // per-unit cost or total (matches your backend)
-  createdDate: string;    // YYYY-MM-DD
+  cost: number;           
+  createdDate: string;    
 }
 
 @Injectable({ providedIn: 'root' })

@@ -11,14 +11,14 @@ export interface Recipe {
   userId?: string;
   title: string;
   chef: string;
-  ingredients: string[];     // or (string | {item:string; quantity:string})[]
+  ingredients: string[];     
   instructions: string[];
   mealType: MealType;
   cuisineType: string;
   prepTime: number;
   difficulty: Difficulty;
   servings: number;
-  createdDate: string;        // YYYY-MM-DD
+  createdDate: string;        
 }
 
 @Injectable({ providedIn: 'root' })
@@ -27,7 +27,6 @@ export class RecipeService {
 
   constructor(private http: HttpClient) {}
 
-  /** Make this tolerant to either `{ ok, recipes }` or raw array responses. */
   getAll(): Observable<Recipe[]> {
     return this.http.get<any>(this.base, { withCredentials: true }).pipe(
       map(res => {
